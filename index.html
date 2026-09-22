@@ -355,8 +355,8 @@
           <input id="f-arrivee" name="arrivee" type="number" step="0.1" min="0" required placeholder="ex. 1283.2">
         </div>
         <div class="field force-field">
-          <label for="f-force">Force <output id="force-out">3</output></label>
-          <input id="f-force" name="force" type="range" min="0" max="8" step="1" value="3">
+          <label for="f-force">Force <output id="force-out">4</output></label>
+          <input id="f-force" name="force" type="range" min="0" max="8" step="1" value="4">
         </div>
         <div class="form-foot">
           <span class="preview" id="preview">Distance calculée automatiquement.</span>
@@ -845,7 +845,7 @@
       form.reset();
       $('#f-date').value = date;
       $('#f-depart').value = arrivee;
-      $('#force-out').textContent = '3';
+      $('#force-out').textContent = '4';
       majPreview();
       $('#f-de').focus();
     });
