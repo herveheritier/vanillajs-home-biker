@@ -576,10 +576,15 @@
 
     function render() {
       liste.innerHTML = '';
-      trajets.forEach((t, i) => {
+      // Affichage antichronologique : les trajets les plus récents en premier.
+      // Les données restent chronologiques (chaînage du kilométrage) ; chaque
+      // ligne porte l'index de sa donnée via data-index.
+      for (let i = trajets.length - 1; i >= 0; i--) {
+        const t = trajets[i];
         const min = dureeMin(t.de, t.a);
         const vitesse = min > 0 ? t.distance / (min / 60) : 0;
         const tr = document.createElement('tr');
+        tr.dataset.index = i;
         tr.innerHTML = `
           <td>${fmtDate(t.date)}</td>
           <td class="num">${t.de}</td>
@@ -596,7 +601,7 @@
         editBtn.type = 'button';
         editBtn.textContent = '✎';
         editBtn.setAttribute('aria-label', 'Corriger cette ligne');
-        editBtn.title = 'Corriger cette ligne (km départ verrouillé à la valeur de la ligne précédente)';
+        editBtn.title = 'Corriger cette ligne (km départ verrouillé au km d\'arrivée du trajet précédent)';
         editBtn.onclick = () => editRow(i);
         tdEdit.appendChild(editBtn);
         tr.appendChild(tdEdit);
@@ -616,7 +621,7 @@
         tdDel.appendChild(del);
         tr.appendChild(tdDel);
         liste.appendChild(tr);
-      });
+      }
 
       if (editingIndex !== null) {
         if (editingIndex >= trajets.length) { editingIndex = null; $('#editing-note').classList.remove('show'); }
@@ -645,7 +650,7 @@
     let editingIndex = null;
 
     function applyEditMode() {
-      const row = liste.children[editingIndex];
+      const row = liste.querySelector(`tr[data-index="${editingIndex}"]`);
       if (!row) return;
       const t = trajets[editingIndex];
       const borneMin = editingIndex > 0 ? trajets[editingIndex - 1].arrivee : null;
@@ -654,7 +659,7 @@
         <td><input name="e-date" type="date" value="${t.date}" required></td>
         <td><input name="e-de" type="time" value="${t.de}" required></td>
         <td><input name="e-a" type="time" value="${t.a}" required></td>
-        <td><input name="e-depart" type="number" step="0.1" value="${t.depart}" ${borneMin !== null ? `min="${borneMin}"` : ''} disabled title="Verrouillé au km d'arrivée de la ligne précédente"></td>
+        <td><input name="e-depart" type="number" step="0.1" value="${t.depart}" ${borneMin !== null ? `min="${borneMin}"` : ''} disabled title="Verrouillé au km d'arrivée du trajet précédent"></td>
         <td><input name="e-arrivee" type="number" step="0.1" value="${t.arrivee}" ${borneMin !== null ? `min="${borneMin}"` : ''} required></td>
         <td><input name="e-force" type="number" min="0" max="8" step="1" value="${t.force}" required></td>
         <td class="num distance" data-e-distance>${fmtKm(t.distance)} km</td>
@@ -797,7 +802,7 @@
       editingIndex = i;
       $('#editing-note').classList.add('show');
       render();
-      const inp = liste.children[i]?.querySelector('[name=e-arrivee]');
+      const inp = liste.querySelector(`tr[data-index="${i}"]`)?.querySelector('[name=e-arrivee]');
       if (inp) { inp.focus(); inp.select(); }
     }
 
