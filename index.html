@@ -243,6 +243,9 @@
       opacity: 0; transition: opacity .2s;
     }
     .modal-overlay.open { opacity: 1; }
+    /* L'attribut hidden doit vraiment masquer l'overlay : sinon il reste rendu
+       (display:flex prime sur le style UA [hidden]) et avale tous les clics. */
+    .modal-overlay[hidden] { display: none; }
     .modal {
       background: var(--card);
       border: 1px solid var(--border);
