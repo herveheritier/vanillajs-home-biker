@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Carnet de trajets</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚴</text></svg>">
+  <style>
+    :root {
+      --bg: #f4f6fb;
+      --card: #ffffff;
+      --text: #1c2333;
+      --muted: #64708a;
+      --border: #e4e8f0;
+      --accent: #4f6df5;
+      --accent-hover: #3d59d9;
+      --accent-soft: #eef1fe;
+      --danger: #e5484d;
+      --ok: #30a46c;
+      --warn: #e5972f;
+      --radius: 14px;
+      --shadow: 0 1px 2px rgba(16,24,40,.05), 0 8px 24px rgba(16,24,40,.06);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #12151c;
+        --card: #1a1f2a;
+        --text: #e8ebf2;
+        --muted: #97a1b5;
+        --border: #2a3140;
+        --accent: #6d87ff;
+        --accent-hover: #869cff;
+        --accent-soft: #232c45;
+        --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+      }
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .container { max-width: 980px; margin: 0 auto; padding: 32px 20px 80px; }
+
+    header { margin-bottom: 24px; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    h1 { margin: 0; font-size: 1.6rem; letter-spacing: -.02em; }
+    header p { margin: 4px 0 0; color: var(--muted); font-size: .95rem; }
+
+    /* ---- Barre utilisateur ---- */
+    .user-bar {
+      display: flex; align-items: center; gap: 6px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 999px; padding: 6px 10px; box-shadow: var(--shadow);
+    }
+    .user-chip {
+      width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 650; font-size: .8rem; color: #fff;
+      background: hsl(var(--hue, 220) 62% 48%);
+    }
+    .user-bar select {
+      border: none; background: transparent; color: var(--text);
+      font: inherit; font-size: .92rem; font-weight: 550;
+      padding: 4px 2px; cursor: pointer; max-width: 160px;
+    }
+    .user-bar select:focus { outline: none; }
+    .user-bar .btn-ghost { padding: 4px 8px; font-size: 1rem; line-height: 1; }
+    .user-bar button:disabled { opacity: .35; cursor: not-allowed; }
+    .user-bar button:disabled:hover { background: transparent; color: var(--muted); }
+
+    /* ---- Stats ---- */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .stat {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      box-shadow: var(--shadow);
+    }
+    .stat .label { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+    .stat .value { font-size: 1.35rem; font-weight: 650; margin-top: 2px; }
+
+    /* ---- Cartes ---- */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+    .card-head h2 { margin: 0; font-size: 1.05rem; }
+    .card-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+    /* ---- Formulaire ---- */
+    form {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 14px;
+      align-items: end;
+    }
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field label { font-size: .85rem; font-weight: 550; color: var(--muted); }
+    .field input {
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--bg);
+      color: var(--text);
+      font: inherit;
+      font-size: .95rem;
+      transition: border-color .15s, box-shadow .15s;
+      width: 100%;
+    }
+    .field input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+    .field input:invalid:not(:placeholder-shown):not(:focus) { border-color: var(--danger); }
+    input[type="date"], input[type="time"] { min-width: 0; }
+
+    .force-field label { display: flex; justify-content: space-between; }
+    .force-field output { font-weight: 650; color: var(--accent); }
+    input[type="range"] { width: 100%; accent-color: var(--accent); height: 38px; margin: 0; }
+
+    .form-foot {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      border-top: 1px dashed var(--border);
+      padding-top: 14px;
+    }
+    .preview { font-size: .92rem; color: var(--muted); }
+    .preview strong { color: var(--text); font-variant-numeric: tabular-nums; }
+    .preview .error { color: var(--danger); font-weight: 550; }
+
+    button {
+      font: inherit;
+      font-weight: 550;
+      border: none;
+      border-radius: 10px;
+      padding: 10px 18px;
+      cursor: pointer;
+      transition: background .15s, transform .05s;
+    }
+    button:active { transform: scale(.97); }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-ghost { background: transparent; color: var(--muted); padding: 6px 10px; font-size: .85rem; }
+    .btn-ghost:hover { background: var(--accent-soft); color: var(--danger); }
+
+    /* ---- Tableau ---- */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+    th {
+      text-align: left;
+      font-size: .75rem;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--muted);
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    td { padding: 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    tbody tr { animation: fadein .25s ease; }
+    tbody tr:hover { background: var(--accent-soft); }
+    tbody tr:last-child td { border-bottom: none; }
+    td.num { font-variant-numeric: tabular-nums; }
+    td.distance { font-weight: 650; color: var(--accent); }
+
+    /* ---- Édition inline ---- */
+    tr.editing td { background: var(--accent-soft); }
+    tr.editing input { width: 100%; min-width: 72px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--text); font: inherit; font-size: .88rem; }
+    tr.editing input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+    tr.editing input:invalid { border-color: var(--danger); }
+    tr.editing .edit-btns { display: flex; gap: 4px; }
+    tr.editing .edit-btns button { padding: 6px 10px; font-size: .85rem; }
+    .btn-mini { background: var(--accent); color: #fff; }
+    .btn-mini:hover { background: var(--accent-hover); }
+    .btn-mini.cancel { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+    .btn-mini.cancel:hover { background: var(--accent-soft); color: var(--danger); }
+    .row-edit { background: transparent; color: var(--muted); padding: 4px 8px; font-size: .9rem; line-height: 1; border-radius: 8px; }
+    .row-edit:hover { background: var(--accent-soft); color: var(--accent); }
+    .row-edit:disabled { opacity: .35; cursor: not-allowed; }
+    .editing-note { color: var(--warn); font-size: .8rem; margin-top: 10px; display: none; }
+    .editing-note.show { display: block; }
+    .editing-note kbd {
+      background: var(--accent-soft); border: 1px solid var(--border); border-radius: 4px;
+      padding: 1px 5px; font-size: .78rem; font-family: inherit;
+    }
+
+    .badge {
+      display: inline-block;
+      min-width: 34px;
+      text-align: center;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: .8rem;
+      font-weight: 600;
+    }
+    .badge.f-low  { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
+    .badge.f-mid  { background: color-mix(in srgb, var(--warn) 15%, transparent); color: var(--warn); }
+    .badge.f-high { background: color-mix(in srgb, var(--danger) 15%, transparent); color: var(--danger); }
+
+    .row-del {
+      background: transparent;
+      color: var(--muted);
+      padding: 4px 8px;
+      font-size: .9rem;
+      line-height: 1;
+      border-radius: 8px;
+    }
+    .row-del:hover { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); }
+
+    /* ---- État vide ---- */
+    .empty { text-align: center; padding: 32px 16px; color: var(--muted); }
+    .empty .icon { font-size: 2rem; display: block; margin-bottom: 8px; }
+
+    /* ---- Modale ---- */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 50;
+      background: rgba(10, 14, 24, .45);
+      backdrop-filter: blur(2px);
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+      opacity: 0; transition: opacity .2s;
+    }
+    .modal-overlay.open { opacity: 1; }
+    .modal {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      max-width: 480px; width: 100%;
+      padding: 22px;
+      transform: translateY(10px) scale(.97);
+      transition: transform .2s;
+      max-height: 85vh; overflow-y: auto;
+    }
+    .modal-overlay.open .modal { transform: none; }
+    .modal-icon {
+      width: 44px; height: 44px; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.4rem; margin-bottom: 12px;
+      background: color-mix(in srgb, var(--warn) 14%, transparent);
+    }
+    .modal.danger .modal-icon { background: color-mix(in srgb, var(--danger) 14%, transparent); }
+    .modal-title { margin: 0 0 10px; font-size: 1.1rem; }
+    .modal-body { color: var(--muted); font-size: .92rem; line-height: 1.5; }
+    .modal-body p { margin: 0 0 10px; }
+    .modal-body strong { color: var(--text); }
+    .modal-body .neg { color: var(--danger); }
+    .modal-recap { margin: 10px 0; padding-left: 18px; }
+    .modal-recap li { margin: 4px 0; }
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; margin-top: 16px; }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-danger:hover { filter: brightness(1.08); }
+    .btn-modal-secondary { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+    .btn-modal-secondary:hover { background: var(--accent-soft); }
+    .modal-label { display: block; font-size: .85rem; font-weight: 550; color: var(--muted); margin-bottom: 6px; }
+    .modal-input {
+      width: 100%; padding: 10px 12px;
+      border: 1px solid var(--border); border-radius: 10px;
+      background: var(--bg); color: var(--text);
+      font: inherit; font-size: .95rem;
+    }
+    .modal-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+    /* ---- Toast ---- */
+    #toast {
+      position: fixed;
+      left: 50%;
+      bottom: 24px;
+      transform: translateX(-50%) translateY(16px);
+      background: var(--text);
+      color: var(--bg);
+      padding: 10px 18px;
+      border-radius: 10px;
+      font-size: .9rem;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .25s, transform .25s;
+      box-shadow: var(--shadow);
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    @keyframes fadein { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+    @media (max-width: 560px) {
+      .container { padding: 20px 12px 60px; }
+      .card { padding: 14px; }
+      form { grid-template-columns: 1fr 1fr; }
+      .form-foot { justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>🚴 Carnet de trajets</h1>
+        <p>Enregistrez vos sorties : dates, horaires, kilométrage et effort.</p>
+      </div>
+      <div class="user-bar">
+        <span class="user-chip" id="user-chip" aria-hidden="true">?</span>
+        <select id="user-select" aria-label="Utilisateur actif"></select>
+        <button type="button" class="btn-ghost" id="user-add" title="Ajouter un utilisateur" aria-label="Ajouter un utilisateur">＋</button>
+        <button type="button" class="btn-ghost" id="user-rename" title="Renommer l'utilisateur actif" aria-label="Renommer l'utilisateur actif">✎</button>
+        <button type="button" class="btn-ghost" id="user-del" title="Supprimer l'utilisateur actif" aria-label="Supprimer l'utilisateur actif">🗑</button>
+      </div>
+    </header>
+
+    <section class="stats" id="stats"></section>
+
+    <section class="card">
+      <form id="form">
+        <div class="field">
+          <label for="f-date">Date</label>
+          <input id="f-date" name="date" type="date" required>
+        </div>
+        <div class="field">
+          <label for="f-de">Heure de départ</label>
+          <input id="f-de" name="de" type="time" required>
+        </div>
+        <div class="field">
+          <label for="f-a">Heure d'arrivée</label>
+          <input id="f-a" name="a" type="time" required>
+        </div>
+        <div class="field">
+          <label for="f-depart">Km départ</label>
+          <input id="f-depart" name="depart" type="number" step="0.1" min="0" required placeholder="ex. 1240.5">
+        </div>
+        <div class="field">
+          <label for="f-arrivee">Km arrivée</label>
+          <input id="f-arrivee" name="arrivee" type="number" step="0.1" min="0" required placeholder="ex. 1283.2">
+        </div>
+        <div class="field force-field">
+          <label for="f-force">Force <output id="force-out">3</output></label>
+          <input id="f-force" name="force" type="range" min="0" max="8" step="1" value="3">
+        </div>
+        <div class="form-foot">
+          <span class="preview" id="preview">Distance calculée automatiquement.</span>
+          <button type="submit" class="btn-primary">＋ Ajouter le trajet</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <h2>Trajets enregistrés</h2>
+          <div class="editing-note" id="editing-note">✎ Correction d'une ligne — <kbd>Entrée</kbd> valide, <kbd>Échap</kbd> annule. La distance se recalcule si vous changez le km d'arrivée.</div>
+    </div>
+        <div class="card-actions">
+          <button type="button" class="btn-ghost" id="import">⬆ Importer un CSV</button>
+          <button type="button" class="btn-ghost" id="export">⬇ Exporter en CSV</button>
+          <button type="button" class="btn-ghost" id="clear">Tout effacer</button>
+        </div>
+        <input type="file" id="file-input" accept=".csv,text/csv" hidden>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th><th>De</th><th>À</th>
+              <th>Km départ</th><th>Km arrivée</th>
+              <th>Force</th><th>Distance</th><th>Durée</th><th>Vitesse</th>
+              <th></th><th></th>
+            </tr>
+          </thead>
+          <tbody id="liste"></tbody>
+        </table>
+        <div class="empty" id="empty">
+          <span class="icon">🧭</span>
+          Aucun trajet pour le moment.<br>Ajoutez votre première sortie avec le formulaire ci-dessus.
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div id="toast" role="status"></div>
+
+  <div class="modal-overlay" id="modal-overlay" hidden>
+    <div class="modal" id="modal" role="alertdialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-body">
+      <div class="modal-icon" id="modal-icon">⚠️</div>
+      <h3 class="modal-title" id="modal-title"></h3>
+      <div class="modal-body" id="modal-body"></div>
+      <div class="modal-actions" id="modal-actions"></div>
+    </div>
+  </div>
+
+  <script>
+    // ---- Profils utilisateurs (stockage isolé par utilisateur) ----
+    const USERS_KEY = 'carnet-trajets-users';
+    const CURRENT_KEY = 'carnet-trajets-current';
+    const LEGACY_KEY = 'carnet-trajets-v1';
+    const tripKey = (id) => `carnet-trajets-u-${id}`;
+    const loadJSON = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); return v ?? d; } catch { return d; } };
+
+    let users = loadJSON(USERS_KEY, []);
+    let userId = localStorage.getItem(CURRENT_KEY);
+    if (!users.length) {
+      users = [{ id: 'u' + Date.now().toString(36), name: 'Moi' }];
+      const legacy = localStorage.getItem(LEGACY_KEY);
+      if (legacy !== null) { // migration de l'ancien carnet unique vers le premier profil
+        localStorage.setItem(tripKey(users[0].id), legacy);
+        localStorage.removeItem(LEGACY_KEY);
+      }
+    }
+    if (!users.some((u) => u.id === userId)) userId = users[0].id;
+    const saveUsers = () => { localStorage.setItem(USERS_KEY, JSON.stringify(users)); localStorage.setItem(CURRENT_KEY, userId); };
+    saveUsers(); // persiste le(s) profil(s) dès le démarrage (évite des trajets orphelins après reload)
+    const currentUser = () => users.find((u) => u.id === userId);
+    const hueOf = (s) => { let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) % 360; return h; };
+
+    const $ = (sel) => document.querySelector(sel);
+    const form = $('#form');
+    const liste = $('#liste');
+    const stats = $('#stats');
+    const empty = $('#empty');
+    const preview = $('#preview');
+    const toast = $('#toast');
+
+    let trajets = loadJSON(tripKey(userId), []);
+    if (!Array.isArray(trajets)) trajets = [];
+
+    const fmtKm = (n) => n.toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+    const fmtH = (min) => {
+      const h = Math.floor(min / 60), m = min % 60;
+      return h ? `${h} h ${String(m).padStart(2, '0')}` : `${m} min`;
+    };
+    const fmtDate = (iso) =>
+      new Date(iso + 'T00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+
+    const dureeMin = (de, a) => {
+      const [h1, m1] = de.split(':').map(Number);
+      const [h2, m2] = a.split(':').map(Number);
+      let min = (h2 * 60 + m2) - (h1 * 60 + m1);
+      if (min < 0) min += 1440; // arrivée après minuit
+      return min;
+    };
+
+    const badgeForce = (f) => {
+      const cls = f <= 2 ? 'f-low' : f <= 5 ? 'f-mid' : 'f-high';
+      return `<span class="badge ${cls}">${f}</span>`;
+    };
+
+    const save = () => localStorage.setItem(tripKey(userId), JSON.stringify(trajets));
+
+    let toastTimer;
+    const showToast = (msg) => {
+      toast.textContent = msg;
+      toast.classList.add('show');
+      toast.dataset.forced = '1'; // contournement headless : garantit la visibilité pendant 2,2 s
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.classList.remove('show');
+        delete toast.dataset.forced;
+      }, 2200);
+    };
+
+    // Modale de dialogue stylée (remplace alert/confirm natifs)
+    function showModal({ icon = '⚠️', title, body, actions, danger = false }) {
+      return new Promise((resolve) => {
+        const overlay = $('#modal-overlay');
+        const modal = $('#modal');
+        $('#modal-icon').textContent = icon;
+        modal.classList.toggle('danger', danger);
+        $('#modal-title').textContent = title;
+        $('#modal-body').innerHTML = body;
+        const box = $('#modal-actions');
+        box.innerHTML = '';
+        actions.forEach((a) => {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.textContent = a.label;
+          b.className = a.variant === 'danger' ? 'btn-danger'
+            : a.variant === 'primary' ? 'btn-primary'
+            : 'btn-modal-secondary';
+          b.onclick = () => done(a.value);
+          box.appendChild(b);
+        });
+        overlay.hidden = false;
+        requestAnimationFrame(() => overlay.classList.add('open'));
+        const onKey = (e) => {
+          if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); done(actions.find((a) => a.esc)?.value ?? null); }
+          if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); const d = actions.find((a) => a.enter); if (d) done(d.value); }
+        };
+        function done(value) {
+          document.removeEventListener('keydown', onKey, true);
+          overlay.classList.remove('open');
+          setTimeout(() => { overlay.hidden = true; }, 200);
+          resolve(value);
+        }
+        overlay.onclick = (e) => { if (e.target === overlay) done(actions.find((a) => a.esc)?.value ?? null); };
+        document.addEventListener('keydown', onKey, true);
+        box.querySelector('.btn-primary')?.focus();
+      });
+    }
+
+    // Saisie texte dans une modale stylée
+    function promptModal({ title, label, value = '', okLabel = 'Valider', validate = null }) {
+      return new Promise((resolve) => {
+        const overlay = $('#modal-overlay');
+        const modal = $('#modal');
+        modal.classList.remove('danger');
+        $('#modal-icon').textContent = '✏️';
+        $('#modal-title').textContent = title;
+        $('#modal-body').innerHTML = `
+          <label class="modal-label" for="modal-field">${label}</label>
+          <input id="modal-field" class="modal-input" type="text" maxlength="40" value="${String(value).replace(/"/g, '&quot;')}">
+          <div id="modal-err" style="color: var(--danger); font-size: .85rem; margin-top: 8px; display: none;"></div>`;
+        const box = $('#modal-actions');
+        box.innerHTML = '';
+        const bCancel = document.createElement('button');
+        bCancel.type = 'button';
+        bCancel.className = 'btn-modal-secondary';
+        bCancel.textContent = 'Annuler';
+        const bOk = document.createElement('button');
+        bOk.type = 'button';
+        bOk.className = 'btn-primary';
+        bOk.textContent = okLabel;
+        box.append(bCancel, bOk);
+        const input = $('#modal-field');
+        const err = $('#modal-err');
+        overlay.hidden = false;
+        requestAnimationFrame(() => overlay.classList.add('open'));
+        const finish = (val) => {
+          document.removeEventListener('keydown', onKey, true);
+          overlay.classList.remove('open');
+          setTimeout(() => { overlay.hidden = true; }, 200);
+          resolve(val);
+        };
+        const submit = () => {
+          const v = input.value.trim();
+          if (!v) { err.textContent = 'Le nom ne peut pas être vide.'; err.style.display = 'block'; input.focus(); return; }
+          const problem = validate ? validate(v) : null;
+          if (problem) { err.textContent = problem; err.style.display = 'block'; input.focus(); return; }
+          finish(v);
+        };
+        const onKey = (e) => {
+          // Ne pas intercepter les touches quand une modale n'a pas à les capter (ex: select utilisateur focus)
+          if (e.target instanceof HTMLSelectElement) return;
+          if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); submit(); }
+          if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finish(null); }
+        };
+        bOk.onclick = submit;
+        bCancel.onclick = () => finish(null);
+        overlay.onclick = (e) => { if (e.target === overlay) finish(null); };
+        input.addEventListener('input', () => { err.style.display = 'none'; });
+        document.addEventListener('keydown', onKey, true);
+        input.focus();
+        input.select();
+      });
+    }
+
+    function render() {
+      liste.innerHTML = '';
+      trajets.forEach((t, i) => {
+        const min = dureeMin(t.de, t.a);
+        const vitesse = min > 0 ? t.distance / (min / 60) : 0;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${fmtDate(t.date)}</td>
+          <td class="num">${t.de}</td>
+          <td class="num">${t.a}</td>
+          <td class="num">${fmtKm(t.depart)}</td>
+          <td class="num">${fmtKm(t.arrivee)}</td>
+          <td>${badgeForce(t.force)}</td>
+          <td class="num distance">${fmtKm(t.distance)} km</td>
+          <td class="num">${fmtH(min)}</td>
+          <td class="num">${fmtKm(vitesse)} km/h</td>`;
+        const tdEdit = document.createElement('td');
+        const editBtn = document.createElement('button');
+        editBtn.className = 'row-edit';
+        editBtn.type = 'button';
+        editBtn.textContent = '✎';
+        editBtn.setAttribute('aria-label', 'Corriger cette ligne');
+        editBtn.title = 'Corriger cette ligne (km départ verrouillé à la valeur de la ligne précédente)';
+        editBtn.onclick = () => editRow(i);
+        tdEdit.appendChild(editBtn);
+        tr.appendChild(tdEdit);
+
+        const tdDel = document.createElement('td');
+        const del = document.createElement('button');
+        del.className = 'row-del';
+        del.type = 'button';
+        del.textContent = '✕';
+        del.setAttribute('aria-label', 'Supprimer ce trajet');
+        del.onclick = () => {
+          trajets.splice(i, 1);
+          save();
+          render();
+          showToast('Trajet supprimé');
+        };
+        tdDel.appendChild(del);
+        tr.appendChild(tdDel);
+        liste.appendChild(tr);
+      });
+
+      if (editingIndex !== null) {
+        if (editingIndex >= trajets.length) { editingIndex = null; $('#editing-note').classList.remove('show'); }
+        else applyEditMode();
+      }
+
+      empty.style.display = trajets.length ? 'none' : 'block';
+      $('#export').style.display = trajets.length ? '' : 'none';
+      $('#clear').style.display = trajets.length ? '' : 'none';
+
+      const totDist = trajets.reduce((s, t) => s + t.distance, 0);
+      const totMin = trajets.reduce((s, t) => s + dureeMin(t.de, t.a), 0);
+      const moy = totMin > 0 ? totDist / (totMin / 60) : 0;
+      stats.innerHTML = `
+        <div class="stat"><div class="label">Trajets</div><div class="value">${trajets.length}</div></div>
+        <div class="stat"><div class="label">Distance totale</div><div class="value">${fmtKm(totDist)} km</div></div>
+        <div class="stat"><div class="label">Durée totale</div><div class="value">${totMin ? fmtH(totMin) : '—'}</div></div>
+        <div class="stat"><div class="label">Vitesse moyenne</div><div class="value">${moy ? fmtKm(moy) + ' km/h' : '—'}</div></div>`;
+    }
+
+    // ---- Édition inline d'une ligne ----
+    // Règles : km départ verrouillé au km d'arrivée de la ligne précédente (si connu) ;
+    // la distance se recalcule si et seulement si le km d'arrivée change ; si la ligne
+    // suivante était chaînée (départ = ancienne arrivée), la correction est répercutée —
+    // avec signalement AVANT modification si la répercussion créerait une distance négative.
+    let editingIndex = null;
+
+    function applyEditMode() {
+      const row = liste.children[editingIndex];
+      if (!row) return;
+      const t = trajets[editingIndex];
+      const borneMin = editingIndex > 0 ? trajets[editingIndex - 1].arrivee : null;
+      row.classList.add('editing');
+      row.innerHTML = `
+        <td><input name="e-date" type="date" value="${t.date}" required></td>
+        <td><input name="e-de" type="time" value="${t.de}" required></td>
+        <td><input name="e-a" type="time" value="${t.a}" required></td>
+        <td><input name="e-depart" type="number" step="0.1" value="${t.depart}" ${borneMin !== null ? `min="${borneMin}"` : ''} disabled title="Verrouillé au km d'arrivée de la ligne précédente"></td>
+        <td><input name="e-arrivee" type="number" step="0.1" value="${t.arrivee}" ${borneMin !== null ? `min="${borneMin}"` : ''} required></td>
+        <td><input name="e-force" type="number" min="0" max="8" step="1" value="${t.force}" required></td>
+        <td class="num distance" data-e-distance>${fmtKm(t.distance)} km</td>
+        <td class="num" data-e-duree>${fmtH(dureeMin(t.de, t.a))}</td>
+        <td class="num" data-e-vitesse>${fmtKm(t.distance / (dureeMin(t.de, t.a) / 60))} km/h</td>
+        <td class="edit-btns" colspan="2">
+          <button type="button" class="btn-mini" data-e-ok>✓</button>
+          <button type="button" class="btn-mini cancel" data-e-cancel>✕</button>
+        </td>`;
+
+      const departEl = row.querySelector('[name=e-depart]');
+      const arriveeEl = row.querySelector('[name=e-arrivee]');
+      const deEl = row.querySelector('[name=e-de]');
+      const aEl = row.querySelector('[name=e-a]');
+      const forceEl = row.querySelector('[name=e-force]');
+      const departInitial = t.depart;
+      const arriveeInitiale = t.arrivee;
+
+      const majLigne = (recalculer) => {
+        const dep = parseFloat(departEl.value);
+        const arr = parseFloat(arriveeEl.value);
+        const [h1, m1] = deEl.value.split(':').map(Number);
+        const [h2, m2] = aEl.value.split(':').map(Number);
+        let mn = (h2 * 60 + m2) - (h1 * 60 + m1);
+        if (isNaN(mn)) return;
+        if (mn < 0) mn += 1440;
+        const dist = recalculer ? +(arr - dep).toFixed(1) : t.distance;
+        row.querySelector('[data-e-distance]').textContent = isNaN(arr) || isNaN(dep) ? '—' : fmtKm(dist) + ' km';
+        row.querySelector('[data-e-duree]').textContent = fmtH(mn);
+        row.querySelector('[data-e-vitesse]').textContent = mn > 0 && !isNaN(arr) && !isNaN(dep) ? fmtKm(dist / (mn / 60)) + ' km/h' : '—';
+      };
+
+      // La distance ne se recalcule que si le km d'arrivée change (km départ verrouillé)
+      arriveeEl.addEventListener('input', () => majLigne(true));
+      deEl.addEventListener('input', () => majLigne(false));
+      aEl.addEventListener('input', () => majLigne(false));
+
+      row.querySelector('[data-e-cancel]').onclick = () => {
+        editingIndex = null;
+        $('#editing-note').classList.remove('show');
+        render();
+      };
+
+      const valider = async () => {
+        if (!row.querySelector('[name=e-date]').reportValidity()) return;
+        if (!deEl.reportValidity() || !aEl.reportValidity()) return;
+        if (!arriveeEl.reportValidity() || !forceEl.reportValidity()) return;
+
+        const dep = parseFloat(departEl.value);
+        const arr = parseFloat(arriveeEl.value);
+        if (isNaN(arr) || arr < dep) {
+          showToast('⚠ Km d\'arrivée inférieur au km de départ');
+          arriveeEl.focus();
+          return;
+        }
+
+        const next = trajets[editingIndex + 1];
+        const arriveeChangee = arr !== arriveeInitiale;
+        const chained = next && arriveeChangee && next.depart === arriveeInitiale; // départ suivant = ancienne arrivée
+
+        const appliquer = (propager) => {
+          const mod = {
+            ...trajets[editingIndex],
+            date: row.querySelector('[name=e-date]').value,
+            de: deEl.value, a: aEl.value,
+            depart: dep, arrivee: arr,
+            force: Math.round(parseFloat(forceEl.value)),
+            distance: +(arr - dep).toFixed(1),
+          };
+          trajets[editingIndex] = mod;
+          if (propager && next) {
+            next.depart = arr;
+            next.arrivee = +(next.arrivee + (arr - arriveeInitiale)).toFixed(1);
+            next.distance = +(next.arrivee - next.depart).toFixed(1);
+          }
+          editingIndex = null;
+          $('#editing-note').classList.remove('show');
+          save();
+          render();
+          showToast(propager ? '✓ Ligne corrigée et répercutée sur la suivante' : '✓ Ligne corrigée');
+        };
+
+        if (chained) {
+          const delta = arr - arriveeInitiale;
+          const nextNewDist = next.distance - delta;
+          if (nextNewDist < 0) {
+            // Incohérence détectée : on signale AVANT de modifier quoi que ce soit
+            const limite = +(arriveeInitiale + next.distance).toFixed(1);
+            await showModal({
+              icon: '⚠️',
+              danger: true,
+              title: 'Incohérence détectée',
+              body: `
+                <p>Votre correction (<strong>${fmtKm(arriveeInitiale)} → ${fmtKm(arr)} km</strong>) décalerait le départ
+                de la ligne suivante (${fmtDate(next.date)} · ${next.de}) et provoquerait une
+                <strong class="neg">distance négative&nbsp;: ${fmtKm(nextNewDist)} km</strong>.</p>
+                <p>Rien n'a été modifié. Réessayez avec un km d'arrivée ≤ <strong>${fmtKm(limite)} km</strong>,
+                ou corrigez d'abord la ligne suivante.</p>`,
+              actions: [{ label: 'Corriger ma saisie', variant: 'primary', enter: true, esc: true }],
+            });
+            arriveeEl.focus();
+            arriveeEl.select();
+            return; // rien n'est modifié
+          }
+          const repercutter = await showModal({
+            icon: '🔗',
+            title: 'Répercuter la correction ?',
+            body: `
+              <p>Le km d'arrivée change et la ligne suivante partait de l'ancienne arrivée
+              (<strong>${fmtKm(arriveeInitiale)} km</strong>).</p>
+              <ul class="modal-recap">
+                <li>Départ suivante : <strong>${fmtKm(arriveeInitiale)} → ${fmtKm(arr)} km</strong></li>
+                <li>Arrivée suivante : <strong>${fmtKm(next.arrivee)} → ${fmtKm(next.arrivee + delta)} km</strong></li>
+                <li>Sa distance : <strong>${fmtKm(next.distance)} → ${fmtKm(next.distance - delta)} km</strong></li>
+              </ul>`,
+            actions: [
+              { label: 'Répercuter', variant: 'primary', value: true, enter: true },
+              { label: 'Cette ligne seulement', value: false },
+              { label: 'Annuler', esc: true },
+            ],
+          });
+          if (repercutter === null) return;
+          appliquer(repercutter);
+        } else {
+          appliquer(false);
+        }
+      };
+
+      row.querySelector('[data-e-ok]').onclick = valider;
+      row.querySelectorAll('input').forEach((inp) => {
+        inp.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') { e.preventDefault(); valider(); }
+          if (e.key === 'Escape') { e.preventDefault(); row.querySelector('[data-e-cancel]').click(); }
+        });
+      });
+    }
+
+    function editRow(i) {
+      if (editingIndex === i) return;
+      editingIndex = i;
+      $('#editing-note').classList.add('show');
+      render();
+      const inp = liste.children[i]?.querySelector('[name=e-arrivee]');
+      if (inp) { inp.focus(); inp.select(); }
+    }
+
+    // Aperçu de la distance en direct
+    const majPreview = () => {
+      const d = parseFloat($('#f-depart').value);
+      const a = parseFloat($('#f-arrivee').value);
+      if (isNaN(d) || isNaN(a)) {
+        preview.textContent = 'Distance calculée automatiquement.';
+        preview.classList.remove('error');
+      } else if (a < d) {
+        preview.innerHTML = '<span class="error">⚠ Le km d\'arrivée doit être supérieur au km de départ.</span>';
+      } else {
+        preview.innerHTML = `Distance : <strong>${fmtKm(a - d)} km</strong>`;
+      }
+    };
+    $('#f-depart').addEventListener('input', majPreview);
+    $('#f-arrivee').addEventListener('input', majPreview);
+    $('#f-force').addEventListener('input', (e) => $('#force-out').textContent = e.target.value);
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const depart = parseFloat($('#f-depart').value);
+      const arrivee = parseFloat($('#f-arrivee').value);
+      if (arrivee < depart) {
+        showToast('⚠ Km d\'arrivée inférieur au km de départ');
+        $('#f-arrivee').focus();
+        return;
+      }
+      trajets.push({
+        date: $('#f-date').value,
+        de: $('#f-de').value,
+        a: $('#f-a').value,
+        depart,
+        arrivee,
+        force: Number($('#f-force').value),
+        distance: +(arrivee - depart).toFixed(1),
+      });
+      save();
+      render();
+      showToast('✓ Trajet ajouté');
+
+      // On garde la date et le compteur de départ pour la saisie suivante
+      const date = $('#f-date').value;
+      form.reset();
+      $('#f-date').value = date;
+      $('#f-depart').value = arrivee;
+      $('#force-out').textContent = '3';
+      majPreview();
+      $('#f-de').focus();
+    });
+
+    $('#export').addEventListener('click', () => {
+      if (!trajets.length) { showToast('Aucun trajet à exporter'); return; }
+      const escape = (v) => {
+        v = String(v);
+        return /[";\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+      };
+      const rows = trajets.map((t) => {
+        const min = dureeMin(t.de, t.a);
+        const vitesse = min > 0 ? t.distance / (min / 60) : 0;
+        return [t.date, t.de, t.a, t.depart, t.arrivee, t.force, t.distance, fmtH(min), vitesse.toFixed(1)]
+          .map(escape).join(';');
+      });
+      const header = ['Date', 'Heure départ', 'Heure arrivée', 'Km départ', 'Km arrivée', 'Force', 'Distance (km)', 'Durée', 'Vitesse (km/h)'];
+      const csv = '\uFEFF' + [header.join(';'), ...rows].join('\r\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `carnet-${norm(currentUser().name) || 'trajets'}-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      showToast('✓ Export CSV téléchargé');
+    });
+
+    // ---- Import CSV ----
+    const parseCSV = (text) => {
+      text = text.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n').trim();
+      if (!text) return [];
+      const lines = text.split('\n');
+      // Détecte le séparateur (; ou ,) hors des zones guillemées
+      const countSep = (line, sep) => {
+        let n = 0, inQ = false;
+        for (const c of line) {
+          if (c === '"') inQ = !inQ;
+          else if (c === sep && !inQ) n++;
+        }
+        return n;
+      };
+      const sep = countSep(lines[0], ';') >= countSep(lines[0], ',') ? ';' : ',';
+      const parseLine = (line) => {
+        const cells = [];
+        let cur = '', inQ = false;
+        for (let i = 0; i < line.length; i++) {
+          const c = line[i];
+          if (inQ) {
+            if (c === '"' && line[i + 1] === '"') { cur += '"'; i++; }
+            else if (c === '"') inQ = false;
+            else cur += c;
+          } else if (c === '"') inQ = true;
+          else if (c === sep) { cells.push(cur.trim()); cur = ''; }
+          else cur += c;
+        }
+        cells.push(cur.trim());
+        return cells;
+      };
+      return lines.map(parseLine);
+    };
+
+    const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+
+    $('#import').addEventListener('click', () => $('#file-input').click());
+
+    $('#file-input').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      e.target.value = '';
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async () => {
+        let rows;
+        try { rows = parseCSV(reader.result); } catch { rows = []; }
+        if (rows.length < 2) { showToast('⚠ Fichier CSV vide ou illisible'); return; }
+
+        // Associe les colonnes par en-tête, sinon positionnel (format export)
+        const header = rows[0].map(norm);
+        const idx = (names, fallback) => {
+          for (const n of names) { const i = header.indexOf(n); if (i !== -1) return i; }
+          return fallback;
+        };
+        const c = {
+          date: idx(['date'], 0),          de: idx(['heuredepart', 'heurededepart', 'de'], 1), a: idx(['heurearrivee', 'heuredarrivee', 'a'], 2),
+          depart: idx(['kmdepart'], 3), arrivee: idx(['kmarrivee'], 4), force: idx(['force'], 5),
+        };
+        const num = (v) => { const n = parseFloat(String(v).replace(',', '.')); return isNaN(n) ? null : n; };
+        const heureRe = /^\d{1,2}:\d{2}/;
+
+        const imported = [];
+        let ignores = 0;
+        for (const row of rows.slice(1)) {
+          if (!row.some(Boolean)) continue;
+          const date = row[c.date] || '';
+          const de = row[c.de] || '';
+          const a = row[c.a] || '';
+          const depart = num(row[c.depart]);
+          const arrivee = num(row[c.arrivee]);
+          const force = num(row[c.force]);
+          const ok = /^\d{4}-\d{2}-\d{2}/.test(date) && heureRe.test(de) && heureRe.test(a)
+            && depart !== null && arrivee !== null && arrivee >= depart;
+          if (!ok) { ignores++; continue; }
+          imported.push({
+            date: date.slice(0, 10), de: de.slice(0, 5), a: a.slice(0, 5),
+            depart, arrivee, force: force === null ? 3 : Math.min(8, Math.max(0, Math.round(force))),
+            distance: +(arrivee - depart).toFixed(1),
+          });
+        }
+        if (!imported.length) { showToast('⚠ Aucun trajet valide trouvé dans le fichier'); return; }
+
+        // Fusionne ou remplace si le carnet n'est pas vide
+        let mode = 'remplacement';
+        if (trajets.length) {
+          const choix = await showModal({
+            icon: '📥',
+            title: 'Importer le fichier ?',
+            body: `<p><strong>${imported.length}</strong> trajet(s) valide(s) trouvé(s) dans le fichier.<br>
+                   Le carnet de <strong>${currentUser().name}</strong> contient déjà <strong>${trajets.length}</strong> trajet(s).</p>`,
+            actions: [
+              { label: 'Fusionner', variant: 'primary', value: 'fusion', enter: true },
+              { label: 'Tout remplacer', value: 'remplacer' },
+              { label: 'Annuler', esc: true },
+            ],
+          });
+          if (choix === null) { showToast('Import annulé'); return; }
+          if (choix === 'fusion') {
+            mode = 'fusion';
+            const cle = (t) => [t.date, t.de, t.a, t.depart, t.arrivee].join('|');
+            const existant = new Set(trajets.map(cle));
+            const nouveaux = imported.filter((t) => !existant.has(cle(t))); // anti-doublons
+            trajets = trajets.concat(nouveaux);
+            if (nouveaux.length < imported.length) showToast(`${nouveaux.length} ajouté(s), ${imported.length - nouveaux.length} doublon(s) ignoré(s)`);
+          } else {
+            trajets = imported; // remplacement
+          }
+        } else {
+          trajets = imported;
+        }
+        trajets.sort((x, y) => (x.date + x.de).localeCompare(y.date + y.de));
+        save();
+        render();
+        if (mode !== 'fusion' || !ignores) showToast(`✓ ${trajets.length} trajet(s) après import${ignores ? ` · ${ignores} ligne(s) ignorée(s)` : ''}`);
+      };
+      reader.readAsText(file);
+    });
+
+    // ---- Barre utilisateur ----
+    function renderUserBar() {
+      const sel = $('#user-select');
+      sel.innerHTML = '';
+      users.forEach((u) => {
+        const o = document.createElement('option');
+        o.value = u.id;
+        o.textContent = u.name;
+        if (u.id === userId) o.selected = true;
+        sel.appendChild(o);
+      });
+      sel.disabled = users.length < 2;
+      sel.title = users.length < 2 ? 'Un seul utilisateur' : 'Changer d’utilisateur';
+      const me = currentUser();
+      const chip = $('#user-chip');
+      chip.textContent = (me.name.trim()[0] || '?').toUpperCase();
+      chip.style.setProperty('--hue', hueOf(me.name.toLowerCase()));
+    }
+
+    async function switchUser(id) {
+      if (id === userId) return;
+      editingIndex = null;
+      $('#editing-note').classList.remove('show');
+      userId = id;
+      saveUsers();
+      trajets = loadJSON(tripKey(userId), []);
+      if (!Array.isArray(trajets)) trajets = [];
+      renderUserBar();
+      render();
+      showToast(`👤 ${currentUser().name}`);
+    }
+
+    $('#user-select').addEventListener('change', (e) => switchUser(e.target.value));
+
+    $('#user-add').addEventListener('click', async () => {
+      const name = await promptModal({
+        title: 'Nouvel utilisateur',
+        label: 'Nom de l’utilisateur',
+        okLabel: 'Créer',
+        validate: (v) => users.some((u) => u.name.toLowerCase() === v.toLowerCase()) ? 'Ce nom existe déjà.' : null,
+      });
+      if (name === null) return;
+      editingIndex = null;
+      $('#editing-note').classList.remove('show');
+      const u = { id: 'u' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name };
+      users.push(u);
+      userId = u.id;
+      trajets = [];
+      saveUsers();
+      save();
+      renderUserBar();
+      render();
+      showToast(`👤 ${name} ajouté — carnet vide`);
+    });
+
+    $('#user-rename').addEventListener('click', async () => {
+      const me = currentUser();
+      const name = await promptModal({
+        title: 'Renommer l’utilisateur',
+        label: 'Nouveau nom',
+        value: me.name,
+        okLabel: 'Renommer',
+        validate: (v) => users.some((u) => u.id !== me.id && u.name.toLowerCase() === v.toLowerCase()) ? 'Ce nom existe déjà.' : null,
+      });
+      if (name === null || name === me.name) return;
+      me.name = name;
+      saveUsers();
+      renderUserBar();
+      showToast('✓ Utilisateur renommé');
+    });
+
+    $('#user-del').addEventListener('click', async () => {
+      const me = currentUser();
+      if (users.length === 1) { showToast('⚠ Impossible de supprimer le dernier utilisateur'); return; }
+      const ok = await showModal({
+        icon: '🗑️',
+        danger: true,
+        title: `Supprimer ${me.name} ?`,
+        body: `<p>Le carnet de <strong>${me.name}</strong> (${trajets.length} trajet${trajets.length > 1 ? 's' : ''}) et son profil seront définitivement effacés.</p><p>Cette action est irréversible.</p>`,
+        actions: [
+          { label: 'Annuler', esc: true, enter: true },
+          { label: 'Supprimer', variant: 'danger', value: true },
+        ],
+      });
+      if (!ok) return;
+      localStorage.removeItem(tripKey(me.id));
+      users = users.filter((u) => u.id !== me.id);
+      userId = users[0].id;
+      trajets = loadJSON(tripKey(userId), []);
+      if (!Array.isArray(trajets)) trajets = [];
+      saveUsers();
+      renderUserBar();
+      render();
+      showToast(`🗑 Profil supprimé — actif : ${currentUser().name}`);
+    });
+
+    $('#clear').addEventListener('click', async () => {
+      if (!trajets.length) return;
+      const ok = await showModal({
+        icon: '🗑️',
+        danger: true,
+        title: 'Effacer tous les trajets ?',
+        body: `<p>Les <strong>${trajets.length}</strong> trajet(s) de <strong>${currentUser().name}</strong> seront définitivement effacés.</p>`,
+        actions: [
+          { label: 'Annuler', esc: true, enter: true },
+          { label: 'Effacer', variant: 'danger', value: true },
+        ],
+      });
+      if (!ok) return;
+      trajets = [];
+      save();
+      render();
+      showToast('Carnet effacé');
+    });
+
+    // Date du jour par défaut
+    $('#f-date').value = new Date().toISOString().slice(0, 10);
+    renderUserBar();
+    render();
+  </script>
+</body>
+</html>
