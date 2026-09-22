@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <title>Carnet de trajets</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚴</text></svg>">
+  <title>Carnet de séances — HomeBiker</title>
+  <link rel="icon" type="image/png" href="homeBiker.png">
   <style>
     :root {
       --bg: #f4f6fb;
@@ -49,7 +49,8 @@
     .container { max-width: 980px; margin: 0 auto; padding: 32px 20px 80px; }
 
     header { margin-bottom: 24px; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-    h1 { margin: 0; font-size: 1.6rem; letter-spacing: -.02em; }
+    h1 { margin: 0; font-size: 1.6rem; letter-spacing: -.02em; display: flex; align-items: center; gap: 10px; }
+    .logo { width: 40px; height: 40px; border-radius: 10px; object-fit: cover; box-shadow: var(--shadow); border: 1px solid var(--border); }
     header p { margin: 4px 0 0; color: var(--muted); font-size: .95rem; }
 
     /* ---- Barre utilisateur ---- */
@@ -318,8 +319,8 @@
   <div class="container">
     <header>
       <div>
-        <h1>🚴 Carnet de trajets</h1>
-        <p>Enregistrez vos sorties : dates, horaires, kilométrage et effort.</p>
+        <h1><img class="logo" src="homeBiker.png" alt="" width="40" height="40">Carnet de séances</h1>
+        <p>Consignez vos séances de vélo d'appartement : dates, horaires, kilométrage et force de résistance.</p>
       </div>
       <div class="user-bar">
         <span class="user-chip" id="user-chip" aria-hidden="true">?</span>
@@ -339,28 +340,28 @@
           <input id="f-date" name="date" type="date" required>
         </div>
         <div class="field">
-          <label for="f-de">Heure de départ</label>
+          <label for="f-de">Heure de début</label>
           <input id="f-de" name="de" type="time" required>
         </div>
         <div class="field">
-          <label for="f-a">Heure d'arrivée</label>
+          <label for="f-a">Heure de fin</label>
           <input id="f-a" name="a" type="time" required>
         </div>
         <div class="field">
-          <label for="f-depart">Km départ</label>
+          <label for="f-depart">Compteur début</label>
           <input id="f-depart" name="depart" type="number" step="0.1" min="0" required placeholder="ex. 1240.5">
         </div>
         <div class="field">
-          <label for="f-arrivee">Km arrivée</label>
+          <label for="f-arrivee">Compteur fin</label>
           <input id="f-arrivee" name="arrivee" type="number" step="0.1" min="0" required placeholder="ex. 1283.2">
         </div>
         <div class="field force-field">
-          <label for="f-force">Force <output id="force-out">4</output></label>
+          <label for="f-force">Résistance <output id="force-out">4</output></label>
           <input id="f-force" name="force" type="range" min="0" max="8" step="1" value="4">
         </div>
         <div class="form-foot">
           <span class="preview" id="preview">Distance calculée automatiquement.</span>
-          <button type="submit" class="btn-primary">＋ Ajouter le trajet</button>
+          <button type="submit" class="btn-primary">＋ Ajouter la séance</button>
         </div>
       </form>
     </section>
@@ -368,8 +369,8 @@
     <section class="card">
       <div class="card-head">
         <div>
-          <h2>Trajets enregistrés</h2>
-          <div class="editing-note" id="editing-note">✎ Correction d'une ligne — <kbd>Entrée</kbd> valide, <kbd>Échap</kbd> annule. La distance se recalcule si vous changez le km d'arrivée.</div>
+          <h2>Séances enregistrées</h2>
+          <div class="editing-note" id="editing-note">✎ Correction d'une ligne — <kbd>Entrée</kbd> valide, <kbd>Échap</kbd> annule. La distance se recalcule si vous changez le compteur de fin.</div>
     </div>
         <div class="card-actions">
           <button type="button" class="btn-ghost" id="import">⬆ Importer un CSV</button>
@@ -382,17 +383,17 @@
         <table>
           <thead>
             <tr>
-              <th>Date</th><th>De</th><th>À</th>
-              <th>Km départ</th><th>Km arrivée</th>
-              <th>Force</th><th>Distance</th><th>Durée</th><th>Vitesse</th>
+              <th>Date</th><th>Début</th><th>Fin</th>
+              <th>Compteur début</th><th>Compteur fin</th>
+              <th>Résistance</th><th>Distance</th><th>Durée</th><th>Vitesse</th>
               <th></th><th></th>
             </tr>
           </thead>
           <tbody id="liste"></tbody>
         </table>
         <div class="empty" id="empty">
-          <span class="icon">🧭</span>
-          Aucun trajet pour le moment.<br>Ajoutez votre première sortie avec le formulaire ci-dessus.
+          <span class="icon">🚴</span>
+          Aucune séance pour le moment.<br>Ajoutez votre première séance avec le formulaire ci-dessus.
         </div>
       </div>
     </section>
@@ -429,7 +430,7 @@
     }
     if (!users.some((u) => u.id === userId)) userId = users[0].id;
     const saveUsers = () => { localStorage.setItem(USERS_KEY, JSON.stringify(users)); localStorage.setItem(CURRENT_KEY, userId); };
-    saveUsers(); // persiste le(s) profil(s) dès le démarrage (évite des trajets orphelins après reload)
+    saveUsers(); // persiste le(s) profil(s) dès le démarrage (évite des séances orphelines après reload)
     const currentUser = () => users.find((u) => u.id === userId);
     const hueOf = (s) => { let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) % 360; return h; };
 
@@ -576,7 +577,7 @@
 
     function render() {
       liste.innerHTML = '';
-      // Affichage antichronologique : les trajets les plus récents en premier.
+      // Affichage antichronologique : les séances les plus récentes en premier.
       // Les données restent chronologiques (chaînage du kilométrage) ; chaque
       // ligne porte l'index de sa donnée via data-index.
       for (let i = trajets.length - 1; i >= 0; i--) {
@@ -601,7 +602,7 @@
         editBtn.type = 'button';
         editBtn.textContent = '✎';
         editBtn.setAttribute('aria-label', 'Corriger cette ligne');
-        editBtn.title = 'Corriger cette ligne (km départ verrouillé au km d\'arrivée du trajet précédent)';
+        editBtn.title = 'Corriger cette ligne (compteur début verrouillé au compteur fin de la séance précédente)';
         editBtn.onclick = () => editRow(i);
         tdEdit.appendChild(editBtn);
         tr.appendChild(tdEdit);
@@ -611,12 +612,12 @@
         del.className = 'row-del';
         del.type = 'button';
         del.textContent = '✕';
-        del.setAttribute('aria-label', 'Supprimer ce trajet');
+        del.setAttribute('aria-label', 'Supprimer cette séance');
         del.onclick = () => {
           trajets.splice(i, 1);
           save();
           render();
-          showToast('Trajet supprimé');
+          showToast('Séance supprimée');
         };
         tdDel.appendChild(del);
         tr.appendChild(tdDel);
@@ -636,16 +637,16 @@
       const totMin = trajets.reduce((s, t) => s + dureeMin(t.de, t.a), 0);
       const moy = totMin > 0 ? totDist / (totMin / 60) : 0;
       stats.innerHTML = `
-        <div class="stat"><div class="label">Trajets</div><div class="value">${trajets.length}</div></div>
+        <div class="stat"><div class="label">Séances</div><div class="value">${trajets.length}</div></div>
         <div class="stat"><div class="label">Distance totale</div><div class="value">${fmtKm(totDist)} km</div></div>
         <div class="stat"><div class="label">Durée totale</div><div class="value">${totMin ? fmtH(totMin) : '—'}</div></div>
         <div class="stat"><div class="label">Vitesse moyenne</div><div class="value">${moy ? fmtKm(moy) + ' km/h' : '—'}</div></div>`;
     }
 
     // ---- Édition inline d'une ligne ----
-    // Règles : km départ verrouillé au km d'arrivée de la ligne précédente (si connu) ;
-    // la distance se recalcule si et seulement si le km d'arrivée change ; si la ligne
-    // suivante était chaînée (départ = ancienne arrivée), la correction est répercutée —
+    // Règles : compteur début verrouillé au compteur fin de la séance précédente (si connu) ;
+    // la distance se recalcule si et seulement si le compteur fin change ; si la séance
+    // suivante était chaînée (début = ancienne fin), la correction est répercutée —
     // avec signalement AVANT modification si la répercussion créerait une distance négative.
     let editingIndex = null;
 
@@ -659,7 +660,7 @@
         <td><input name="e-date" type="date" value="${t.date}" required></td>
         <td><input name="e-de" type="time" value="${t.de}" required></td>
         <td><input name="e-a" type="time" value="${t.a}" required></td>
-        <td><input name="e-depart" type="number" step="0.1" value="${t.depart}" ${borneMin !== null ? `min="${borneMin}"` : ''} disabled title="Verrouillé au km d'arrivée du trajet précédent"></td>
+        <td><input name="e-depart" type="number" step="0.1" value="${t.depart}" ${borneMin !== null ? `min="${borneMin}"` : ''} disabled title="Verrouillé au compteur fin de la séance précédente"></td>
         <td><input name="e-arrivee" type="number" step="0.1" value="${t.arrivee}" ${borneMin !== null ? `min="${borneMin}"` : ''} required></td>
         <td><input name="e-force" type="number" min="0" max="8" step="1" value="${t.force}" required></td>
         <td class="num distance" data-e-distance>${fmtKm(t.distance)} km</td>
@@ -692,7 +693,7 @@
         row.querySelector('[data-e-vitesse]').textContent = mn > 0 && !isNaN(arr) && !isNaN(dep) ? fmtKm(dist / (mn / 60)) + ' km/h' : '—';
       };
 
-      // La distance ne se recalcule que si le km d'arrivée change (km départ verrouillé)
+      // La distance ne se recalcule que si le compteur fin change (compteur début verrouillé)
       arriveeEl.addEventListener('input', () => majLigne(true));
       deEl.addEventListener('input', () => majLigne(false));
       aEl.addEventListener('input', () => majLigne(false));
@@ -711,7 +712,7 @@
         const dep = parseFloat(departEl.value);
         const arr = parseFloat(arriveeEl.value);
         if (isNaN(arr) || arr < dep) {
-          showToast('⚠ Km d\'arrivée inférieur au km de départ');
+          showToast('⚠ Compteur de fin inférieur au compteur de début');
           arriveeEl.focus();
           return;
         }
@@ -753,11 +754,11 @@
               danger: true,
               title: 'Incohérence détectée',
               body: `
-                <p>Votre correction (<strong>${fmtKm(arriveeInitiale)} → ${fmtKm(arr)} km</strong>) décalerait le départ
-                de la ligne suivante (${fmtDate(next.date)} · ${next.de}) et provoquerait une
+                <p>Votre correction (<strong>${fmtKm(arriveeInitiale)} → ${fmtKm(arr)} km</strong>) décalerait le compteur de début
+                de la séance suivante (${fmtDate(next.date)} · ${next.de}) et provoquerait une
                 <strong class="neg">distance négative&nbsp;: ${fmtKm(nextNewDist)} km</strong>.</p>
-                <p>Rien n'a été modifié. Réessayez avec un km d'arrivée ≤ <strong>${fmtKm(limite)} km</strong>,
-                ou corrigez d'abord la ligne suivante.</p>`,
+                <p>Rien n'a été modifié. Réessayez avec un compteur de fin ≤ <strong>${fmtKm(limite)} km</strong>,
+                ou corrigez d'abord la séance suivante.</p>`,
               actions: [{ label: 'Corriger ma saisie', variant: 'primary', enter: true, esc: true }],
             });
             arriveeEl.focus();
@@ -768,11 +769,11 @@
             icon: '🔗',
             title: 'Répercuter la correction ?',
             body: `
-              <p>Le km d'arrivée change et la ligne suivante partait de l'ancienne arrivée
+              <p>Le compteur de fin change et la séance suivante partait de l'ancienne valeur
               (<strong>${fmtKm(arriveeInitiale)} km</strong>).</p>
               <ul class="modal-recap">
-                <li>Départ suivante : <strong>${fmtKm(arriveeInitiale)} → ${fmtKm(arr)} km</strong></li>
-                <li>Arrivée suivante : <strong>${fmtKm(next.arrivee)} → ${fmtKm(next.arrivee + delta)} km</strong></li>
+                <li>Compteur début suivante : <strong>${fmtKm(arriveeInitiale)} → ${fmtKm(arr)} km</strong></li>
+                <li>Compteur fin suivante : <strong>${fmtKm(next.arrivee)} → ${fmtKm(next.arrivee + delta)} km</strong></li>
                 <li>Sa distance : <strong>${fmtKm(next.distance)} → ${fmtKm(next.distance - delta)} km</strong></li>
               </ul>`,
             actions: [
@@ -814,7 +815,7 @@
         preview.textContent = 'Distance calculée automatiquement.';
         preview.classList.remove('error');
       } else if (a < d) {
-        preview.innerHTML = '<span class="error">⚠ Le km d\'arrivée doit être supérieur au km de départ.</span>';
+        preview.innerHTML = '<span class="error">⚠ Le compteur de fin doit être supérieur au compteur de début.</span>';
       } else {
         preview.innerHTML = `Distance : <strong>${fmtKm(a - d)} km</strong>`;
       }
@@ -828,7 +829,7 @@
       const depart = parseFloat($('#f-depart').value);
       const arrivee = parseFloat($('#f-arrivee').value);
       if (arrivee < depart) {
-        showToast('⚠ Km d\'arrivée inférieur au km de départ');
+        showToast('⚠ Compteur de fin inférieur au compteur de début');
         $('#f-arrivee').focus();
         return;
       }
@@ -843,7 +844,7 @@
       });
       save();
       render();
-      showToast('✓ Trajet ajouté');
+      showToast('✓ Séance ajoutée');
 
       // On garde la date et le compteur de départ pour la saisie suivante
       const date = $('#f-date').value;
@@ -856,7 +857,7 @@
     });
 
     $('#export').addEventListener('click', () => {
-      if (!trajets.length) { showToast('Aucun trajet à exporter'); return; }
+      if (!trajets.length) { showToast('Aucune séance à exporter'); return; }
       const escape = (v) => {
         v = String(v);
         return /[";\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
@@ -867,13 +868,13 @@
         return [t.date, t.de, t.a, t.depart, t.arrivee, t.force, t.distance, fmtH(min), vitesse.toFixed(1)]
           .map(escape).join(';');
       });
-      const header = ['Date', 'Heure départ', 'Heure arrivée', 'Km départ', 'Km arrivée', 'Force', 'Distance (km)', 'Durée', 'Vitesse (km/h)'];
+      const header = ['Date', 'Heure de début', 'Heure de fin', 'Compteur début', 'Compteur fin', 'Résistance', 'Distance (km)', 'Durée', 'Vitesse (km/h)'];
       const csv = '\uFEFF' + [header.join(';'), ...rows].join('\r\n');
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `carnet-${norm(currentUser().name) || 'trajets'}-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.download = `carnet-${norm(currentUser().name) || 'seances'}-${new Date().toISOString().slice(0, 10)}.csv`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -936,8 +937,12 @@
           return fallback;
         };
         const c = {
-          date: idx(['date'], 0),          de: idx(['heuredepart', 'heurededepart', 'de'], 1), a: idx(['heurearrivee', 'heuredarrivee', 'a'], 2),
-          depart: idx(['kmdepart'], 3), arrivee: idx(['kmarrivee'], 4), force: idx(['force'], 5),
+          date: idx(['date'], 0),
+          de: idx(['heuredebut', 'heurededebut', 'debut', 'heuredepart', 'heurededepart', 'de'], 1),
+          a: idx(['heurefin', 'heuredefin', 'fin', 'heurearrivee', 'heuredarrivee', 'a'], 2),
+          depart: idx(['compteurdebut', 'kmdebut', 'kmdepart'], 3),
+          arrivee: idx(['compteurfin', 'kmfin', 'kmarrivee'], 4),
+          force: idx(['resistance', 'force'], 5),
         };
         const num = (v) => { const n = parseFloat(String(v).replace(',', '.')); return isNaN(n) ? null : n; };
         const heureRe = /^\d{1,2}:\d{2}/;
@@ -961,7 +966,7 @@
             distance: +(arrivee - depart).toFixed(1),
           });
         }
-        if (!imported.length) { showToast('⚠ Aucun trajet valide trouvé dans le fichier'); return; }
+        if (!imported.length) { showToast('⚠ Aucune séance valide trouvée dans le fichier'); return; }
 
         // Fusionne ou remplace si le carnet n'est pas vide
         let mode = 'remplacement';
@@ -969,8 +974,8 @@
           const choix = await showModal({
             icon: '📥',
             title: 'Importer le fichier ?',
-            body: `<p><strong>${imported.length}</strong> trajet(s) valide(s) trouvé(s) dans le fichier.<br>
-                   Le carnet de <strong>${currentUser().name}</strong> contient déjà <strong>${trajets.length}</strong> trajet(s).</p>`,
+            body: `<p><strong>${imported.length}</strong> séance(s) valide(s) trouvée(s) dans le fichier.<br>
+                   Le carnet de <strong>${currentUser().name}</strong> contient déjà <strong>${trajets.length}</strong> séance(s).</p>`,
             actions: [
               { label: 'Fusionner', variant: 'primary', value: 'fusion', enter: true },
               { label: 'Tout remplacer', value: 'remplacer' },
@@ -994,7 +999,7 @@
         trajets.sort((x, y) => (x.date + x.de).localeCompare(y.date + y.de));
         save();
         render();
-        if (mode !== 'fusion' || !ignores) showToast(`✓ ${trajets.length} trajet(s) après import${ignores ? ` · ${ignores} ligne(s) ignorée(s)` : ''}`);
+        if (mode !== 'fusion' || !ignores) showToast(`✓ ${trajets.length} séance(s) après import${ignores ? ` · ${ignores} ligne(s) ignorée(s)` : ''}`);
       };
       reader.readAsText(file);
     });
@@ -1077,7 +1082,7 @@
         icon: '🗑️',
         danger: true,
         title: `Supprimer ${me.name} ?`,
-        body: `<p>Le carnet de <strong>${me.name}</strong> (${trajets.length} trajet${trajets.length > 1 ? 's' : ''}) et son profil seront définitivement effacés.</p><p>Cette action est irréversible.</p>`,
+        body: `<p>Le carnet de <strong>${me.name}</strong> (${trajets.length} séance${trajets.length > 1 ? 's' : ''}) et son profil seront définitivement effacés.</p><p>Cette action est irréversible.</p>`,
         actions: [
           { label: 'Annuler', esc: true, enter: true },
           { label: 'Supprimer', variant: 'danger', value: true },
@@ -1100,8 +1105,8 @@
       const ok = await showModal({
         icon: '🗑️',
         danger: true,
-        title: 'Effacer tous les trajets ?',
-        body: `<p>Les <strong>${trajets.length}</strong> trajet(s) de <strong>${currentUser().name}</strong> seront définitivement effacés.</p>`,
+        title: 'Effacer toutes les séances ?',
+        body: `<p>Les <strong>${trajets.length}</strong> séance(s) de <strong>${currentUser().name}</strong> seront définitivement effacée(s).</p>`,
         actions: [
           { label: 'Annuler', esc: true, enter: true },
           { label: 'Effacer', variant: 'danger', value: true },
