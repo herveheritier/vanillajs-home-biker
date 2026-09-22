@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
   <title>Carnet de séances — HomeBiker</title>
-  <link rel="icon" type="image/png" href="homeBiker.png">
+  <link rel="icon" type="image/svg+xml" href="homeBiker.svg">
   <style>
     :root {
       --bg: #f4f6fb;
@@ -74,6 +74,10 @@
     .user-bar .btn-ghost { padding: 4px 8px; font-size: 1rem; line-height: 1; }
     .user-bar button:disabled { opacity: .35; cursor: not-allowed; }
     .user-bar button:disabled:hover { background: transparent; color: var(--muted); }
+    .header-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+    .view-toggle { white-space: nowrap; }
+    td .user-chip { display: inline-flex; vertical-align: middle; margin-right: 6px; }
+    .user-chip.small { width: 22px; height: 22px; font-size: .68rem; }
 
     /* ---- Stats ---- */
     .stats {
@@ -233,6 +237,7 @@
     /* ---- État vide ---- */
     .empty { text-align: center; padding: 32px 16px; color: var(--muted); }
     .empty .icon { font-size: 2rem; display: block; margin-bottom: 8px; }
+    .sub-title { margin: 20px 0 8px; font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
 
     /* ---- Modale ---- */
     .modal-overlay {
@@ -319,21 +324,25 @@
   <div class="container">
     <header>
       <div>
-        <h1><img class="logo" src="homeBiker.png" alt="" width="40" height="40">Carnet de séances</h1>
+        <h1><img class="logo" src="homeBiker.svg" alt="" width="40" height="40">Carnet de séances</h1>
         <p>Consignez vos séances de vélo d'appartement : dates, horaires, kilométrage et force de résistance.</p>
       </div>
-      <div class="user-bar">
-        <span class="user-chip" id="user-chip" aria-hidden="true">?</span>
-        <select id="user-select" aria-label="Utilisateur actif"></select>
-        <button type="button" class="btn-ghost" id="user-add" title="Ajouter un utilisateur" aria-label="Ajouter un utilisateur">＋</button>
-        <button type="button" class="btn-ghost" id="user-rename" title="Renommer l'utilisateur actif" aria-label="Renommer l'utilisateur actif">✎</button>
-        <button type="button" class="btn-ghost" id="user-del" title="Supprimer l'utilisateur actif" aria-label="Supprimer l'utilisateur actif">🗑</button>
+      <div class="header-actions">
+        <button type="button" class="btn-ghost view-toggle" id="toggle-view" title="Basculer entre votre carnet et la vue consolidée de tous les utilisateurs">👥 Vue consolidée</button>
+        <div class="user-bar">
+          <span class="user-chip" id="user-chip" aria-hidden="true">?</span>
+          <select id="user-select" aria-label="Utilisateur actif"></select>
+          <button type="button" class="btn-ghost" id="user-add" title="Ajouter un utilisateur" aria-label="Ajouter un utilisateur">＋</button>
+          <button type="button" class="btn-ghost" id="user-rename" title="Renommer l'utilisateur actif" aria-label="Renommer l'utilisateur actif">✎</button>
+          <button type="button" class="btn-ghost" id="user-del" title="Supprimer l'utilisateur actif" aria-label="Supprimer l'utilisateur actif">🗑</button>
+        </div>
       </div>
     </header>
 
     <section class="stats" id="stats"></section>
+    <section class="stats" id="stats-all" style="display:none"></section>
 
-    <section class="card">
+    <section class="card" id="form-card">
       <form id="form">
         <div class="field">
           <label for="f-date">Date</label>
@@ -366,7 +375,7 @@
       </form>
     </section>
 
-    <section class="card">
+    <section class="card" id="card-user">
       <div class="card-head">
         <div>
           <h2>Séances enregistrées</h2>
@@ -394,6 +403,48 @@
         <div class="empty" id="empty">
           <span class="icon">🚴</span>
           Aucune séance pour le moment.<br>Ajoutez votre première séance avec le formulaire ci-dessus.
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="card-all" style="display:none">
+      <div class="card-head">
+        <div>
+          <h2>Tous les utilisateurs</h2>
+        </div>
+        <div class="card-actions">
+          <button type="button" class="btn-ghost" id="import-all">⬆ Importer un CSV multi-profils</button>
+          <button type="button" class="btn-ghost" id="export-all">⬇ Exporter tout en CSV</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Utilisateur</th><th>Séances</th><th>Distance</th><th>Durée</th><th>Vitesse moy.</th>
+            </tr>
+          </thead>
+          <tbody id="resume-liste"></tbody>
+        </table>
+        <div class="empty" id="resume-empty" style="display:none">
+          <span class="icon">👥</span>
+          Aucune séance enregistrée pour le moment.
+        </div>
+      </div>
+      <div class="sub-title">Détail de toutes les séances</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Utilisateur</th><th>Date</th><th>Début</th><th>Fin</th>
+              <th>Résistance</th><th>Distance</th><th>Durée</th><th>Vitesse</th>
+            </tr>
+          </thead>
+          <tbody id="consolide-liste"></tbody>
+        </table>
+        <div class="empty" id="consolide-empty" style="display:none">
+          <span class="icon">🚴</span>
+          Aucune séance enregistrée pour le moment.
         </div>
       </div>
     </section>
@@ -575,7 +626,7 @@
       });
     }
 
-    function render() {
+    function renderUser() {
       liste.innerHTML = '';
       // Affichage antichronologique : les séances les plus récentes en premier.
       // Les données restent chronologiques (chaînage du kilométrage) ; chaque
@@ -856,30 +907,49 @@
       $('#f-de').focus();
     });
 
-    $('#export').addEventListener('click', () => {
-      if (!trajets.length) { showToast('Aucune séance à exporter'); return; }
-      const escape = (v) => {
-        v = String(v);
-        return /[";\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
-      };
-      const rows = trajets.map((t) => {
-        const min = dureeMin(t.de, t.a);
-        const vitesse = min > 0 ? t.distance / (min / 60) : 0;
-        return [t.date, t.de, t.a, t.depart, t.arrivee, t.force, t.distance, fmtH(min), vitesse.toFixed(1)]
-          .map(escape).join(';');
-      });
-      const header = ['Date', 'Heure de début', 'Heure de fin', 'Compteur début', 'Compteur fin', 'Résistance', 'Distance (km)', 'Durée', 'Vitesse (km/h)'];
-      const csv = '\uFEFF' + [header.join(';'), ...rows].join('\r\n');
+    // ---- Export CSV (utilisateur courant ou tous les profils) ----
+    const csvEscape = (v) => {
+      v = String(v);
+      return /[";\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+    };
+    const csvHeader = ['Utilisateur', 'Date', 'Heure de début', 'Heure de fin', 'Compteur début', 'Compteur fin', 'Résistance', 'Distance (km)', 'Durée', 'Vitesse (km/h)'];
+    const csvLigne = (nom, t) => {
+      const min = dureeMin(t.de, t.a);
+      const vitesse = min > 0 ? t.distance / (min / 60) : 0;
+      return [nom, t.date, t.de, t.a, t.depart, t.arrivee, t.force, t.distance, fmtH(min), vitesse.toFixed(1)]
+        .map(csvEscape).join(';');
+    };
+    const telechargerCSV = (csv, nomFichier) => {
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `carnet-${norm(currentUser().name) || 'seances'}-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.download = nomFichier;
       document.body.appendChild(a);
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
       showToast('✓ Export CSV téléchargé');
+    };
+
+    $('#export').addEventListener('click', () => {
+      if (!trajets.length) { showToast('Aucune séance à exporter'); return; }
+      const rows = trajets.map((t) => csvLigne(currentUser().name, t));
+      const csv = '\uFEFF' + [csvHeader.join(';'), ...rows].join('\r\n');
+      telechargerCSV(csv, `carnet-${norm(currentUser().name) || 'seances'}-${new Date().toISOString().slice(0, 10)}.csv`);
+    });
+
+    $('#export-all').addEventListener('click', () => {
+      const toutes = [];
+      for (const u of users) {
+        const seances = loadJSON(tripKey(u.id), []);
+        if (Array.isArray(seances)) seances.forEach((t) => toutes.push({ nom: u.name, t }));
+      }
+      if (!toutes.length) { showToast('Aucune séance à exporter'); return; }
+      toutes.sort((x, y) => (x.t.date + x.t.de).localeCompare(y.t.date + y.t.de));
+      const rows = toutes.map(({ nom, t }) => csvLigne(nom, t));
+      const csv = '\uFEFF' + [csvHeader.join(';'), ...rows].join('\r\n');
+      telechargerCSV(csv, `carnet-tous-utilisateurs-${new Date().toISOString().slice(0, 10)}.csv`);
     });
 
     // ---- Import CSV ----
@@ -937,6 +1007,7 @@
           return fallback;
         };
         const c = {
+          user: idx(['utilisateur', 'user', 'profil'], -1),
           date: idx(['date'], 0),
           de: idx(['heuredebut', 'heurededebut', 'debut', 'heuredepart', 'heurededepart', 'de'], 1),
           a: idx(['heurefin', 'heuredefin', 'fin', 'heurearrivee', 'heuredarrivee', 'a'], 2),
@@ -947,7 +1018,9 @@
         const num = (v) => { const n = parseFloat(String(v).replace(',', '.')); return isNaN(n) ? null : n; };
         const heureRe = /^\d{1,2}:\d{2}/;
 
-        const imported = [];
+        // Regroupe les séances valides par utilisateur (colonne « Utilisateur »
+        // du CSV ; à défaut, tout est attribué à l'utilisateur actif).
+        const groupes = new Map(); // nom normalisé -> { nom, seances[], cibleId }
         let ignores = 0;
         for (const row of rows.slice(1)) {
           if (!row.some(Boolean)) continue;
@@ -960,21 +1033,74 @@
           const ok = /^\d{4}-\d{2}-\d{2}/.test(date) && heureRe.test(de) && heureRe.test(a)
             && depart !== null && arrivee !== null && arrivee >= depart;
           if (!ok) { ignores++; continue; }
-          imported.push({
+          const nomUser = c.user >= 0 ? (row[c.user] || '').trim() : '';
+          const cle = nomUser ? norm(nomUser) : norm(currentUser().name);
+          if (!groupes.has(cle)) groupes.set(cle, { nom: nomUser || currentUser().name, seances: [], cibleId: null });
+          groupes.get(cle).seances.push({
             date: date.slice(0, 10), de: de.slice(0, 5), a: a.slice(0, 5),
             depart, arrivee, force: force === null ? 3 : Math.min(8, Math.max(0, Math.round(force))),
             distance: +(arrivee - depart).toFixed(1),
           });
         }
-        if (!imported.length) { showToast('⚠ Aucune séance valide trouvée dans le fichier'); return; }
+        if (!groupes.size) { showToast('⚠ Aucune séance valide trouvée dans le fichier'); return; }
 
-        // Fusionne ou remplace si le carnet n'est pas vide
-        let mode = 'remplacement';
+        // Cible chaque groupe : le profil existant portant ce nom, sinon un
+        // profil à créer (après confirmation).
+        for (const [cle, g] of groupes) {
+          const connu = users.find((u) => norm(u.name) === cle);
+          g.cibleId = connu ? connu.id : null;
+        }
+        const total = [...groupes.values()].reduce((s, g) => s + g.seances.length, 0);
+
+        const appliquerImport = (toastFinal = null) => {
+          for (const g of groupes.values()) {
+            let id = g.cibleId;
+            if (id === null) { // profil inconnu : création
+              const u = { id: 'u' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name: g.nom };
+              users.push(u);
+              g.cibleId = u.id;
+              id = u.id;
+            }
+            g.seances.sort((x, y) => (x.date + x.de).localeCompare(y.date + y.de));
+            if (id === userId) { trajets = g.seances; save(); }
+            else localStorage.setItem(tripKey(id), JSON.stringify(g.seances));
+          }
+          saveUsers();
+          renderUserBar();
+          render();
+          showToast(toastFinal ?? `✓ ${total} séance(s) importée(s)${groupes.size > 1 ? ` dans ${groupes.size} profil(s)` : ''}${ignores ? ` · ${ignores} ligne(s) ignorée(s)` : ''}`);
+        };
+
+        // Plusieurs profils visés, ou profil inconnu / autre que l'actif : une
+        // confirmation présente la répartition, puis chaque profil ciblé voit
+        // son carnet remplacé.
+        if (groupes.size > 1 || [...groupes.values()].some((g) => g.cibleId !== userId)) {
+          const lignes = [...groupes.values()].map((g) =>
+            `<li><strong>${g.nom}</strong> — ${g.seances.length} séance(s) (${g.cibleId === null ? 'profil <strong>à créer</strong>' : 'profil existant'})</li>`
+          ).join('');
+          const ok = await showModal({
+            icon: '📥',
+            title: 'Importer le fichier ?',
+            body: `<p><strong>${total}</strong> séance(s) valide(s) trouvée(s)&nbsp;:</p>
+                   <ul class="modal-recap">${lignes}</ul>
+                   <p>Le contenu actuel de chaque profil ciblé sera <strong>remplacé</strong>.</p>`,
+            actions: [
+              { label: 'Importer', variant: 'primary', value: true, enter: true },
+              { label: 'Annuler', esc: true },
+            ],
+          });
+          if (!ok) { showToast('Import annulé'); return; }
+          appliquerImport();
+          return;
+        }
+
+        // Un seul profil visé : l'utilisateur actif → fusion anti-doublons ou remplacement
+        const g = groupes.values().next().value;
         if (trajets.length) {
           const choix = await showModal({
             icon: '📥',
             title: 'Importer le fichier ?',
-            body: `<p><strong>${imported.length}</strong> séance(s) valide(s) trouvée(s) dans le fichier.<br>
+            body: `<p><strong>${g.seances.length}</strong> séance(s) valide(s) trouvée(s) dans le fichier.<br>
                    Le carnet de <strong>${currentUser().name}</strong> contient déjà <strong>${trajets.length}</strong> séance(s).</p>`,
             actions: [
               { label: 'Fusionner', variant: 'primary', value: 'fusion', enter: true },
@@ -984,22 +1110,16 @@
           });
           if (choix === null) { showToast('Import annulé'); return; }
           if (choix === 'fusion') {
-            mode = 'fusion';
             const cle = (t) => [t.date, t.de, t.a, t.depart, t.arrivee].join('|');
             const existant = new Set(trajets.map(cle));
-            const nouveaux = imported.filter((t) => !existant.has(cle(t))); // anti-doublons
-            trajets = trajets.concat(nouveaux);
-            if (nouveaux.length < imported.length) showToast(`${nouveaux.length} ajouté(s), ${imported.length - nouveaux.length} doublon(s) ignoré(s)`);
-          } else {
-            trajets = imported; // remplacement
+            const nouveaux = g.seances.filter((t) => !existant.has(cle(t))); // anti-doublons
+            const nbDoublons = g.seances.length - nouveaux.length;
+            g.seances = trajets.concat(nouveaux);
+            appliquerImport(nbDoublons ? `${nouveaux.length} ajouté(s), ${nbDoublons} doublon(s) ignoré(s)` : null);
+            return;
           }
-        } else {
-          trajets = imported;
         }
-        trajets.sort((x, y) => (x.date + x.de).localeCompare(y.date + y.de));
-        save();
-        render();
-        if (mode !== 'fusion' || !ignores) showToast(`✓ ${trajets.length} séance(s) après import${ignores ? ` · ${ignores} ligne(s) ignorée(s)` : ''}`);
+        appliquerImport();
       };
       reader.readAsText(file);
     });
@@ -1072,6 +1192,7 @@
       me.name = name;
       saveUsers();
       renderUserBar();
+      render();
       showToast('✓ Utilisateur renommé');
     });
 
@@ -1118,6 +1239,95 @@
       render();
       showToast('Carnet effacé');
     });
+
+    // ---- Vue consolidée (tous les utilisateurs) ----
+    let vueGlobale = false;
+
+    function renderConsolide() {
+      const parUser = [];
+      const lignes = [];
+      let totSeances = 0, totDist = 0, totMin = 0;
+      for (const u of users) {
+        const seances = loadJSON(tripKey(u.id), []);
+        if (!Array.isArray(seances)) continue;
+        let d = 0, m = 0;
+        for (const t of seances) {
+          const min = dureeMin(t.de, t.a);
+          d += t.distance;
+          m += min;
+          lignes.push({ nom: u.name, t, min });
+        }
+        parUser.push({ nom: u.name, hue: hueOf(u.name.toLowerCase()), n: seances.length, d, m });
+        totSeances += seances.length;
+        totDist += d;
+        totMin += m;
+      }
+      const moy = totMin > 0 ? totDist / (totMin / 60) : 0;
+      $('#stats-all').innerHTML = `
+        <div class="stat"><div class="label">Utilisateurs</div><div class="value">${users.length}</div></div>
+        <div class="stat"><div class="label">Séances</div><div class="value">${totSeances}</div></div>
+        <div class="stat"><div class="label">Distance totale</div><div class="value">${fmtKm(totDist)} km</div></div>
+        <div class="stat"><div class="label">Durée totale</div><div class="value">${totMin ? fmtH(totMin) : '—'}</div></div>
+        <div class="stat"><div class="label">Vitesse moyenne</div><div class="value">${moy ? fmtKm(moy) + ' km/h' : '—'}</div></div>`;
+
+      // Récapitulatif par utilisateur
+      const resume = $('#resume-liste');
+      resume.innerHTML = '';
+      for (const { nom, hue, n, d, m } of parUser) {
+        const v = m > 0 ? d / (m / 60) : 0;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><span class="user-chip small" style="--hue:${hue}" aria-hidden="true">${(nom.trim()[0] || '?').toUpperCase()}</span>${nom}</td>
+          <td class="num">${n}</td>
+          <td class="num">${fmtKm(d)} km</td>
+          <td class="num">${m ? fmtH(m) : '—'}</td>
+          <td class="num">${v ? fmtKm(v) + ' km/h' : '—'}</td>`;
+        resume.appendChild(tr);
+      }
+      $('#resume-empty').style.display = totSeances ? 'none' : 'block';
+
+      // Détail antichronologique de toutes les séances
+      lignes.sort((x, y) => (y.t.date + y.t.de).localeCompare(x.t.date + x.t.de));
+      const detail = $('#consolide-liste');
+      detail.innerHTML = '';
+      for (const { nom, t, min } of lignes) {
+        const v = min > 0 ? t.distance / (min / 60) : 0;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${nom}</td>
+          <td>${fmtDate(t.date)}</td>
+          <td class="num">${t.de}</td>
+          <td class="num">${t.a}</td>
+          <td>${badgeForce(t.force)}</td>
+          <td class="num distance">${fmtKm(t.distance)} km</td>
+          <td class="num">${fmtH(min)}</td>
+          <td class="num">${fmtKm(v)} km/h</td>`;
+        detail.appendChild(tr);
+      }
+      $('#consolide-empty').style.display = totSeances ? 'none' : 'block';
+      $('#export-all').style.display = totSeances ? '' : 'none';
+    }
+
+    // Aiguillage entre la vue de l'utilisateur actif et la vue consolidée
+    function render() {
+      $('#toggle-view').textContent = vueGlobale ? '👤 Mon carnet' : '👥 Vue consolidée';
+      $('#stats').style.display = vueGlobale ? 'none' : '';
+      $('#stats-all').style.display = vueGlobale ? 'grid' : 'none';
+      $('#form-card').style.display = vueGlobale ? 'none' : '';
+      $('#card-user').style.display = vueGlobale ? 'none' : '';
+      $('#card-all').style.display = vueGlobale ? '' : 'none';
+      if (vueGlobale) renderConsolide();
+      else renderUser();
+    }
+
+    $('#toggle-view').addEventListener('click', () => {
+      editingIndex = null;
+      $('#editing-note').classList.remove('show');
+      vueGlobale = !vueGlobale;
+      render();
+    });
+
+    $('#import-all').addEventListener('click', () => $('#file-input').click());
 
     // Date du jour par défaut
     $('#f-date').value = new Date().toISOString().slice(0, 10);

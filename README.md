@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <img src="homeBiker.png" alt="HomeBiker" width="280">
+  <img src="homeBiker.svg" alt="HomeBiker" width="280">
 </p>
 
 Une application **100 % locale** (aucun serveur, aucune dépendance) pour consigner
@@ -34,10 +34,11 @@ Vos données restent dans votre navigateur.
   correction ; une **incohérence (distance négative) est signalée avant toute
   modification**
 - **Export / import CSV** : compatible Excel/LibreOffice (`;`, BOM UTF-8,
-  virgules décimales tolérées), fusion avec détection des doublons ou
-  remplacement complet
+  virgules décimales tolérées), avec le **nom de l'utilisateur** sur chaque
+  ligne ; fusion avec détection des doublons ou remplacement complet
 - **Multi-profils** : chaque utilisateur a son carnet isolé, avec
-  ajout/renommage/suppression
+  ajout/renommage/suppression, et une **vue consolidée** de tous les carnets
+  (statistiques, récapitulatif par utilisateur, détail de toutes les séances)
 - **Confort** : mode sombre automatique, responsive (mobile), notifications
   non bloquantes, modales clavier (Entrée / Échap), séances les plus
   récentes affichées en premier
@@ -63,12 +64,26 @@ avant modification.
 
 ### Exporter / importer
 - **⬇ Exporter en CSV** : télécharge `carnet-<profil>-<date>.csv` (ouvrable
-  dans Excel/LibreOffice).
+  dans Excel/LibreOffice). Chaque ligne comporte le **nom de l'utilisateur**
+  en première colonne.
 - **⬆ Importer un CSV** : accepte un fichier exporté par l'app (nouveaux
   en-têtes *Compteur début/fin* ou anciens *Km départ/arrivée*) ou un CSV
-  « maison » (séparateur `;` ou `,` détecté automatiquement). Si votre carnet
-  n'est pas vide, vous choisissez **fusionner** (les doublons sont ignorés)
-  ou **remplacer**.
+  « maison » (séparateur `;` ou `,` détecté automatiquement). Si le fichier
+  comporte une colonne **Utilisateur**, les séances sont réparties dans les
+  profils correspondants (les profils inconnus sont créés après
+  confirmation) ; sinon tout va dans le carnet de l'utilisateur actif. Si
+  votre carnet n'est pas vide, vous choisissez **fusionner** (les doublons
+  sont ignorés) ou **remplacer**.
+
+### Vue consolidée
+Le bouton **👥 Vue consolidée** affiche le carnet de tous les utilisateurs :
+statistiques globales, récapitulatif par utilisateur et détail de toutes les
+séances (les plus récentes d'abord). De là :
+- **⬇ Exporter tout en CSV** : télécharge
+  `carnet-tous-utilisateurs-<date>.csv`, un fichier unique avec la colonne
+  Utilisateur remplie pour chaque séance.
+- **⬆ Importer un CSV multi-profils** : réimporte un tel fichier en
+  restaurant chaque carnet (y compris la création des profils manquants).
 
 ### Gérer les profils
 Dans la barre en haut : sélectionnez l'utilisateur actif, **＋** ajoute un
@@ -81,7 +96,8 @@ un éventuel ancien carnet unique vers le profil « Moi ».
 Tout est stocké dans le **localStorage de votre navigateur** : rien ne sort
 de votre machine, aucun compte, aucun tracker. Pensez à faire un **export
 CSV** de temps en temps comme sauvegarde (un changement de navigateur ou de
-machine ne conserve pas les données locales).
+machine ne conserve pas les données locales) — l'**export global** depuis la
+vue consolidée sauvegarde tous les carnets en un seul fichier.
 
 ## 🛠 Technique
 
