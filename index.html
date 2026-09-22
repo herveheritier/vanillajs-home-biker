@@ -871,8 +871,48 @@
         preview.innerHTML = `Distance : <strong>${fmtKm(a - d)} km</strong>`;
       }
     };
-    $('#f-depart').addEventListener('input', majPreview);
-    $('#f-arrivee').addEventListener('input', majPreview);
+    // ---- Pré-remplissage automatique du formulaire ----
+    // Compteur début : repris du compteur fin de la séance qui précède le
+    // moment saisi (rattrapage d'une séance oubliée au milieu du carnet).
+    // Heure de fin et compteur fin : calqués sur l'heure et le compteur de
+    // début. Toute saisie manuelle est prioritaire ; effacer le champ
+    // réarme l'automatisme.
+    let departAuto = true;   // compteur début suit la séance précédente
+    let heureFinAuto = true; // heure de fin suit l'heure de début
+    let arriveeAuto = true;  // compteur fin suit le compteur début
+    const clefMoment = (t) => `${t.date}T${t.de}`;
+    const precedenteDe = (date, heure) => {
+      const cible = `${date}T${heure}`;
+      let prec = null, clefPrec = null;
+      for (const t of trajets) {
+        const clef = clefMoment(t);
+        if (clef < cible && (!prec || clef > clefPrec)) { prec = t; clefPrec = clef; }
+      }
+      return prec;
+    };
+    const majAuto = () => {
+      const date = $('#f-date').value, heure = $('#f-de').value;
+      if (departAuto && date && heure) {
+        const prec = precedenteDe(date, heure);
+        const v = prec ? String(prec.arrivee) : ''; // rien avant ce moment → vide
+        if ($('#f-depart').value !== v) $('#f-depart').value = v;
+      }
+      if (heureFinAuto && heure) $('#f-a').value = heure;
+      if (arriveeAuto && $('#f-depart').value) $('#f-arrivee').value = $('#f-depart').value;
+      majPreview();
+    };
+    $('#f-date').addEventListener('input', majAuto);
+    $('#f-de').addEventListener('input', majAuto);
+    $('#f-depart').addEventListener('input', () => {
+      departAuto = $('#f-depart').value === ''; // saisie manuelle → auto désactivé
+      if (arriveeAuto && $('#f-depart').value) $('#f-arrivee').value = $('#f-depart').value;
+      majPreview();
+    });
+    $('#f-a').addEventListener('input', () => { heureFinAuto = $('#f-a').value === ''; });
+    $('#f-arrivee').addEventListener('input', () => {
+      arriveeAuto = $('#f-arrivee').value === ''; // saisie manuelle → auto désactivé
+      majPreview();
+    });
     $('#f-force').addEventListener('input', (e) => $('#force-out').textContent = e.target.value);
 
     form.addEventListener('submit', (e) => {
@@ -893,6 +933,9 @@
         force: Number($('#f-force').value),
         distance: +(arrivee - depart).toFixed(1),
       });
+      // Une séance rattrapée retrouve sa place chronologique (affichage
+      // antichronologique et chaînage de l'édition s'appuient sur l'ordre).
+      trajets.sort((x, y) => (x.date + x.de).localeCompare(y.date + y.de));
       save();
       render();
       showToast('✓ Séance ajoutée');
@@ -902,6 +945,9 @@
       form.reset();
       $('#f-date').value = date;
       $('#f-depart').value = arrivee;
+      departAuto = true;
+      heureFinAuto = true;
+      arriveeAuto = true;
       $('#force-out').textContent = '4';
       majPreview();
       $('#f-de').focus();

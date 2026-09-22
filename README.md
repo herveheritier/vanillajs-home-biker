@@ -23,7 +23,12 @@ Vos données restent dans votre navigateur.
 ## ✨ Fonctionnalités
 
 - **Saisie guidée** : date du jour pré-remplie, compteur de début reporté
-  automatiquement sur la séance suivante, **distance calculée en direct**
+  automatiquement sur la séance suivante, **distance calculée en direct** ;
+  l'heure de fin et le compteur de fin sont pré-remplis avec ceux de début
+  (il suffit de les ajuster) ; si vous changez la date/l'heure (rattrapage
+  d'une séance oubliée), le compteur de début est repris de la séance qui
+  **précède chronologiquement** le moment saisi, et la séance ajoutée
+  retrouve sa place dans le carnet
 - **Statistiques** : nombre de séances, distance totale, durée cumulée et
   vitesse moyenne
 - **Force de résistance** : curseur de 0 à 8 avec badge coloré
@@ -53,6 +58,13 @@ Vos données restent dans votre navigateur.
 3. Ajustez la **force de résistance** avec le curseur.
 4. Cliquez sur **＋ Ajouter la séance**. À la séance suivante, la date et le
    compteur de début sont déjà remplis pour vous.
+
+Les champs se suivent automatiquement : le **compteur de début** est repris
+du compteur de fin de la séance qui précède la date/heure saisies — pratique
+pour consigner une séance oubliée au milieu du carnet — et **l'heure de fin**
+ainsi que le **compteur de fin** partent de la valeur des champs de début.
+Toute saisie manuelle reste prioritaire (effacez le champ pour réactiver
+l'automatisme).
 
 ### Corriger une séance
 Cliquez sur **✎** dans la ligne du tableau : le compteur de début est
