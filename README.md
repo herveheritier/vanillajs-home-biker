@@ -78,6 +78,10 @@ machine ne conserve pas les données locales).
 Un seul fichier [`index.html`](index.html) — HTML/CSS/JS vanilla, sans
 framework ni build. Hébergé gratuitement via **GitHub Pages**.
 
+## 📄 Licence
+
+Distribué sous [licence MIT](LICENSE).
+
 ---
 
 <p align="center">
