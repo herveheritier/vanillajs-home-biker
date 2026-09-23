@@ -31,6 +31,15 @@ Vos données restent dans votre navigateur.
   retrouve sa place dans le carnet
 - **Statistiques** : nombre de séances, distance totale, durée cumulée et
   vitesse moyenne
+- **Graphique de progression** : barres de distance et courbe de vitesse
+  séance par séance (SVG natif, infobulles au survol, période affichée
+  réglable — 10/30 dernières ou tout) ; affiché aussi dans la vue consolidée.
+  Chaque séance porte également un **trait vertical** lu sur l'axe des heures
+  (0 h en bas → 24 h en haut, repères 6/12/18 h) ; une séance qui traverse
+  minuit est dessinée en **deux segments** (fin de soirée + début de nuit)
+  au lieu d'un trait trompeur couvrant toute la journée. La **légende est
+  cliquable** : chaque élément (Distance, Vitesse, Plage horaire) masque ou
+  réaffiche sa couche sur le graphe, avec préférence mémorisée
 - **Force de résistance** : curseur de 0 à 8 avec badge coloré
 - **Édition en ligne** : corrigez une séance directement dans le tableau ; la
   distance se recalcule si vous changez le compteur de fin

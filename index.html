@@ -239,6 +239,41 @@
     .empty .icon { font-size: 2rem; display: block; margin-bottom: 8px; }
     .sub-title { margin: 20px 0 8px; font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
 
+    /* ---- Graphique d'évolution ---- */
+    .chart-legend { display: flex; gap: 14px; margin-top: 4px; font-size: .8rem; color: var(--muted); flex-wrap: wrap; }
+    .chart-legend .sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+    .sw-dist { background: var(--accent); }
+    .sw-vit { background: var(--ok); border-radius: 50%; }
+    .sw-slot { width: 3px; height: 12px; border-radius: 2px; background: var(--warn); border: none; margin-right: 7px; box-shadow: 0 0 0 2px var(--card); }
+    /* Légende filtrante : chaque élément bascule sa couche sur le graphe */
+    .chart-legend .sw { transition: opacity .15s; }
+    .chart-filter {
+      display: inline-flex; align-items: center;
+      border: 1px solid transparent; border-radius: 999px;
+      padding: 3px 10px; margin: -3px -6px;
+      cursor: pointer; user-select: none;
+      font-size: .8rem; color: var(--muted);
+      transition: opacity .15s, background .15s, border-color .15s;
+    }
+    .chart-filter:hover { background: var(--accent-soft); border-color: var(--border); }
+    .chart-filter.off { opacity: .35; }
+    .chart-filter.off .sw { box-shadow: none; }
+    .chart-filter.off .sw-dist, .chart-filter.off .sw-vit { background: var(--muted); }
+    .chart-range { border: 1px solid var(--border); background: var(--bg); color: var(--text); border-radius: 8px; padding: 6px 8px; font: inherit; font-size: .85rem; }
+    #chart-wrap svg { display: block; width: 100%; height: auto; }
+    #chart-wrap .grid { stroke: var(--border); stroke-width: 1; }
+    #chart-wrap .lbl { fill: var(--muted); font-size: 11px; font-family: inherit; }
+    #chart-wrap .bar { fill: var(--accent); }
+    #chart-wrap .bar:hover { opacity: .8; }
+    #chart-wrap .vline { fill: none; stroke: var(--ok); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+    #chart-wrap .vdot { fill: var(--card); stroke: var(--ok); stroke-width: 2; }
+    #chart-wrap .slotline { stroke: var(--warn); stroke-width: 3; stroke-linecap: round; }
+    #chart-wrap .slotline:hover { stroke-width: 5; }
+    #chart-wrap .slotbase { stroke: var(--card); stroke-width: 8; stroke-linecap: round; }
+    #chart-wrap .slothit { stroke: transparent; stroke-width: 12; fill: none; pointer-events: stroke; }
+    #chart-wrap .vgrid { stroke: var(--border); stroke-width: 1; stroke-dasharray: 2 4; }
+    #chart-wrap .hlab { fill: var(--muted); font-size: 10px; font-family: inherit; }
+
     /* ---- Modale ---- */
     .modal-overlay {
       position: fixed; inset: 0; z-index: 50;
@@ -373,6 +408,31 @@
           <button type="submit" class="btn-primary">＋ Ajouter la séance</button>
         </div>
       </form>
+    </section>
+
+    <section class="card" id="card-chart" style="display:none">
+      <div class="card-head">
+        <div>
+          <h2>📈 Progression des séances</h2>
+          <div class="chart-legend">
+            <span class="chart-filter" id="f-dist"><i class="sw sw-dist"></i>Distance (km)</span>
+            <span class="chart-filter" id="f-vit"><i class="sw sw-vit"></i>Vitesse (km/h)</span>
+            <span class="chart-filter" id="f-slot"><i class="sw sw-slot"></i>Plage horaire (0–24 h)</span>
+          </div>
+        </div>
+        <div class="card-actions">
+          <select id="chart-range" class="chart-range" aria-label="Période affichée">
+            <option value="10">10 dernières</option>
+            <option value="30">30 dernières</option>
+            <option value="0" selected>Tout</option>
+          </select>
+        </div>
+      </div>
+      <div id="chart-wrap"></div>
+      <div class="empty" id="chart-empty" style="display:none">
+        <span class="icon">📈</span>
+        Le graphique apparaîtra dès la première séance enregistrée.
+      </div>
     </section>
 
     <section class="card" id="card-user">
@@ -692,6 +752,9 @@
         <div class="stat"><div class="label">Distance totale</div><div class="value">${fmtKm(totDist)} km</div></div>
         <div class="stat"><div class="label">Durée totale</div><div class="value">${totMin ? fmtH(totMin) : '—'}</div></div>
         <div class="stat"><div class="label">Vitesse moyenne</div><div class="value">${moy ? fmtKm(moy) + ' km/h' : '—'}</div></div>`;
+
+      // Graphique : séances de l'utilisateur actif, ordre chronologique
+      drawChart(chartSeances(trajets.map((t) => ({ ...t, min: dureeMin(t.de, t.a) }))), `— ${currentUser().name}`);
     }
 
     // ---- Édition inline d'une ligne ----
@@ -1289,6 +1352,148 @@
     // ---- Vue consolidée (tous les utilisateurs) ----
     let vueGlobale = false;
 
+    // ---- Graphique d'évolution (distance + vitesse) ----
+    // SVG généré à la main : aucune dépendance, s'adapte au thème clair/sombre.
+    const CHART_H = 240;
+    const drawChart = (seances, label = '') => {
+      const wrap = $('#chart-wrap');
+      wrap.innerHTML = '';
+      $('#chart-empty').style.display = seances.length ? 'none' : 'block';
+      if (!seances.length) return;
+
+      // Échelles et marges (marge droite élargie si les valeurs sont longues)
+      const dists = seances.map((s) => s.distance);
+      const vitesses = seances.map((s) => s.min > 0 ? s.distance / (s.min / 60) : 0);
+      const maxD = Math.max(...dists, 1);
+      const maxV = Math.max(...vitesses, 1);
+      const wLab = Math.max(...dists.map((d) => String(Math.round(d)).length)) * 8;
+      const W = Math.max(480, Math.min(940, 60 + seances.length * 46));
+      const M = { top: 16, right: 14 + wLab, bottom: 40, left: 34 };
+      const pw = Math.max(80, W - M.left - M.right);
+      const ph = CHART_H - M.top - M.bottom;
+      const yD = (v) => M.top + ph * (1 - v / maxD);
+      const yV = (v) => M.top + ph * (1 - v / maxV);
+      const xC = (i) => M.left + pw * ((i + .5) / seances.length);
+      const bw = Math.max(8, Math.min(34, pw / seances.length - 6));
+      const t = (s) => `Séance du ${fmtDate(s.date)}${s.nom ? ` — ${s.nom}` : ''} : ${fmtKm(s.distance)} km${s.min ? ` · ${fmtH(s.min)}` : ''}${s.min > 0 ? ` · ${fmtKm(s.distance / (s.min / 60))} km/h` : ''} · ${s.de} → ${s.a}${s.a < s.de ? ' (minuit passé)' : ''}`;
+      // Couches affichées ? (légende filtrante, préférences mémorisées)
+      const layers = chartLayers();
+      const quid = [];
+      if (layers.dist) quid.push('distances');
+      if (layers.vit) quid.push('vitesse');
+      if (layers.slot) quid.push('plages horaires');
+      let svg = `<svg viewBox="0 0 ${W} ${CHART_H}" role="img" aria-label="${quid.length ? `Évolution des ${quid.join(', des ').replace(', des plages', ' et des plages')}` : 'Séances'} ${label}">`;      // Grille horizontale + graduations de l'axe distance (gauche) — graduit
+      // seulement si la couche Distance est affichée ; la grille reste sinon la
+      // trame de fond discrète.
+      if (layers.dist) {
+        for (let g = 0; g <= 4; g++) {
+          const val = maxD * (4 - g) / 4, y = M.top + ph * g / 4;
+          svg += `<line class="grid" x1="${M.left}" y1="${y.toFixed(1)}" x2="${W - M.right}" y2="${y.toFixed(1)}" />`;
+          svg += `<text class="lbl" x="${M.left - 6}" y="${(y + 4).toFixed(1)}" text-anchor="end">${fmtKm(val)}</text>`;
+        }
+      } else {
+        for (let g = 0; g <= 4; g++) {
+          const y = M.top + ph * g / 4;
+          svg += `<line class="grid" x1="${M.left}" y1="${y.toFixed(1)}" x2="${W - M.right}" y2="${y.toFixed(1)}" />`;
+        }
+      }
+      // Axe vitesse (droite) : graduations alignées sur la même grille
+      if (layers.vit) {
+        for (let g = 0; g <= 4; g++) {
+          const val = maxV * (4 - g) / 4, y = M.top + ph * g / 4;
+          svg += `<text class="lbl" x="${W - M.right + 6}" y="${(y + 4).toFixed(1)}">${fmtKm(val)}</text>`;
+        }
+      }
+      // Barres de distance (une par séance, survolées → infobulle)
+      if (layers.dist) {
+        for (let i = 0; i < seances.length; i++) {
+          const x = xC(i) - bw / 2, y = yD(dists[i]);
+          svg += `<rect class="bar" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1, M.top + ph - y).toFixed(1)}" rx="3"><title>${t(seances[i])}</title></rect>`;
+        }
+      }
+      // Grille des heures + fond assombri : uniquement si le filtre
+      // « Plage horaire » est actif (la grille sert à lire les traits).
+      if (layers.slot) {
+        const yH = (h) => M.top + ph * (1 - h / 24);
+        for (let h = 0; h <= 24; h += 6) {
+          const y = yH(h).toFixed(1);
+          svg += `<line class="vgrid" x1="${M.left}" y1="${y}" x2="${W - M.right}" y2="${y}" />`;
+          if (h > 0 && h < 24) svg += `<text class="hlab" x="${M.left - 6}" y="${(parseFloat(y) + 3).toFixed(1)}" text-anchor="end">${h} h</text>`;
+        }
+        svg += `<rect x="${M.left}" y="${M.top}" width="${pw}" height="${(ph * 6 / 24).toFixed(1)}" fill="var(--muted)" opacity="0.06" />`;
+        svg += `<rect x="${M.left}" y="${yH(22).toFixed(1)}" width="${pw}" height="${(ph * 2 / 24).toFixed(1)}" fill="var(--muted)" opacity="0.06" />`;
+      }
+      // Plages horaires : trait vertical fin au centre de chaque colonne, lu
+      // sur l'axe des heures (0 h en bas → 24 h en haut). Si l'heure de fin est
+      // antérieure à l'heure de début, la séance a passé minuit : on trace
+      // deux segments (début → 24 h puis 0 h → fin) plutôt qu'un trait unique
+      // qui ferait croire à une séance couvrant toute la journée.
+      // Masquées si le filtre « Plage horaire » est désactivé.
+      const toH = (hhmm) => { const [h, m] = hhmm.split(':').map(Number); return h + m / 60; };
+      if (layers.slot) {
+        const yH = (h) => M.top + ph * (1 - h / 24);
+        seances.forEach((s, i) => {
+          const x = xC(i).toFixed(1);
+          const h1 = toH(s.de), h2 = toH(s.a);
+          const segs = h2 < h1 ? [[h1, 24], [0, h2]] : [[h1, h2]];
+          for (const [a, b] of segs) {
+            const y1 = yH(a).toFixed(1), y2 = yH(b).toFixed(1);
+            // Contour contrasté (fond de carte) sous le trait ambre : le segment
+            // reste lisible qu'il passe sur une barre, la grille ou le fond.
+            svg += `<line class="slotbase" x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" />`;
+            svg += `<line class="slotline" x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" />`;
+            svg += `<line class="slothit" x1="${x}" y1="${y1}" x2="${x}" y2="${y2}"><title>${t(s)}</title></line>`;
+          }
+        });
+      }
+      // Courbe + points de vitesse (si le filtre Vitesse est actif)
+      if (layers.vit) {
+        svg += `<polyline class="vline" points="${seances.map((s, i) => `${xC(i).toFixed(1)},${yV(vitesses[i]).toFixed(1)}`).join(' ')}" />`;
+        seances.forEach((s, i) => {
+          svg += `<circle class="vdot" cx="${xC(i).toFixed(1)}" cy="${yV(vitesses[i]).toFixed(1)}" r="3.5"><title>${t(s)}</title></circle>`;
+        });
+      }
+      // Étiquettes de date sous les barres (inclinées si la place manque)
+      const tilt = seances.length > 8;
+      seances.forEach((s, i) => {
+        const x = xC(i).toFixed(1), y = M.top + ph + 16;
+        svg += tilt
+          ? `<text class="lbl" x="${x}" y="${y}" text-anchor="end" transform="rotate(-40 ${x} ${y})">${fmtDate(s.date)}</text>`
+          : `<text class="lbl" x="${x}" y="${y}" text-anchor="middle">${fmtDate(s.date)}</text>`;
+      });
+      svg += `</svg>`;
+      wrap.innerHTML = svg;
+    };
+
+    // Séances à représenter, en ordre chronologique, limitées à la période choisie
+    const chartSeances = (seances) => {
+      const n = parseInt($('#chart-range').value, 10);
+      return seances.slice(-(n || seances.length));
+    };
+
+    // Légende filtrante : chaque élément bascule sa couche (préférence
+    // mémorisée par couche dans le localStorage), effet immédiat dans les deux vues.
+    const LAYER_KEYS = { dist: 'carnet-trajets-chart-dist', vit: 'carnet-trajets-chart-vit', slot: 'carnet-trajets-chart-slots' };
+    const chartLayers = () => ({
+      dist: localStorage.getItem(LAYER_KEYS.dist) !== '0',
+      vit: localStorage.getItem(LAYER_KEYS.vit) !== '0',
+      slot: localStorage.getItem(LAYER_KEYS.slot) !== '0',
+    });
+    const majFiltres = () => {
+      const L = chartLayers();
+      for (const k of Object.keys(LAYER_KEYS)) {
+        document.getElementById(`f-${k}`).classList.toggle('off', !L[k]);
+      }
+    };
+    majFiltres();
+    for (const k of Object.keys(LAYER_KEYS)) {
+      document.getElementById(`f-${k}`).addEventListener('click', () => {
+        localStorage.setItem(LAYER_KEYS[k], chartLayers()[k] ? '0' : '1');
+        majFiltres();
+        render();
+      });
+    }
+
     function renderConsolide() {
       const parUser = [];
       const lignes = [];
@@ -1352,6 +1557,11 @@
       }
       $('#consolide-empty').style.display = totSeances ? 'none' : 'block';
       $('#export-all').style.display = totSeances ? '' : 'none';
+
+      // Graphique : toutes les séances, tri chronologique
+      drawChart(chartSeances([...lignes]
+        .sort((x, y) => (x.t.date + x.t.de).localeCompare(y.t.date + y.t.de))
+        .map(({ nom, t, min }) => ({ ...t, min, nom }))), '— tous les utilisateurs');
     }
 
     // Aiguillage entre la vue de l'utilisateur actif et la vue consolidée
@@ -1362,6 +1572,7 @@
       $('#form-card').style.display = vueGlobale ? 'none' : '';
       $('#card-user').style.display = vueGlobale ? 'none' : '';
       $('#card-all').style.display = vueGlobale ? '' : 'none';
+      $('#card-chart').style.display = ''; // visible dans les deux vues
       if (vueGlobale) renderConsolide();
       else renderUser();
     }
@@ -1372,6 +1583,8 @@
       vueGlobale = !vueGlobale;
       render();
     });
+
+    $('#chart-range').addEventListener('change', render);
 
     $('#import-all').addEventListener('click', () => $('#file-input').click());
 
