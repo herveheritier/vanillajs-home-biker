@@ -1066,10 +1066,22 @@
     $('#save-band-go').addEventListener('click', () => sortirCoffre(false));
 
     // ---- Modales du coffre
+    // Les modales se partagent l'overlay : si une modale vient d'être fermée, son
+    // timer de transition masque l'overlay 200 ms plus tard et fermerait la modale
+    // suivante (cas « Fusionner ou remplacer ? » qui s'ouvre juste après l'aperçu).
+    let coffreOverlayTimer = null;
+    const annulerMasquageOverlay = () => { if (coffreOverlayTimer) { clearTimeout(coffreOverlayTimer); coffreOverlayTimer = null; } };
+    const masquerOverlay = () => {
+      annulerMasquageOverlay();
+      const overlay = $('#restore-overlay');
+      overlay.classList.remove('open');
+      coffreOverlayTimer = setTimeout(() => { coffreOverlayTimer = null; overlay.hidden = true; }, 200);
+    };
     function showCoffreModal({ icon, title, bodyHTML, actions, onOpen }) {
       return new Promise((resolve) => {
         const overlay = $('#restore-overlay');
         const modal = overlay.querySelector('.modal');
+        annulerMasquageOverlay(); // la modale précédente ne doit pas masquer celle-ci
         $('#restore-icon').textContent = icon;
         modal.classList.toggle('danger', false);
         $('#restore-title').textContent = title;
@@ -1092,8 +1104,7 @@
         };
         function done(value) {
           document.removeEventListener('keydown', onKey, true);
-          overlay.classList.remove('open');
-          setTimeout(() => { overlay.hidden = true; }, 200);
+          masquerOverlay();
           resolve(value);
         }
         overlay.onclick = (e) => { if (e.target === overlay) { const c = actions.find((a) => a.esc); if (c) done(c.value); } };
@@ -1299,11 +1310,10 @@
     };
     const closeRestore = () => {
       stopScan();
-      const overlay = $('#restore-overlay');
-      overlay.classList.remove('open');
-      setTimeout(() => { overlay.hidden = true; }, 200);
+      masquerOverlay();
     };
     $('#restore').addEventListener('click', () => {
+      annulerMasquageOverlay();
       $('#restore-body').innerHTML = RESTORE_BODY_HTML; // recrée les onglets/pans détruits par une modale précédente
       $('#restore-actions').innerHTML = RESTORE_ACTIONS_HTML;
       $('#restore-file-name').textContent = '';

@@ -37,7 +37,7 @@ const harness = `
     clic(q('#tab-paste'));
     coller(coffre);
     clic(q('#restore-next'));
-    await attendre(() => byId('restore-title').textContent === 'Restaurer ce coffre ?');
+    await attendre(() => byId('restore-title').textContent === 'Restaurer ce coffre ?' && !q('#restore-overlay').hidden);
     clic(bouton('Restaurer'));
   };
   (async () => {
@@ -59,6 +59,7 @@ const harness = `
       await restaurerVia({ app: 'homebiker', format: 2, exporte: '2026-09-27T11:00:00Z', appareil: { ua: 'test' }, profils: [{ id: 'ux', nom: 'Test', seances: [{ date: '2026-09-01', de: '08:00', a: '08:30', depart: 0, arrivee: 10, force: 2, distance: 10 }, { date: '2026-09-02', de: '09:00', a: '09:40', depart: 10, arrivee: 50, force: 3, distance: 40 }] }], prefs: { couches: {} } });
       const fusionBtn = await (async () => { await attendre(() => bouton('Fusionner')); return bouton('Fusionner'); })();
       if (fusionBtn) {
+        A(!q('#restore-overlay').hidden, 'choix Fusionner/Remplacer visible (non masqué par le timer de la modale précédente)');
         clic(fusionBtn);
         await attendre(() => /ajoutée/.test(byId('toast').textContent));
         A(q('#liste').children.length === 2, 'fusion : 1 doublon ignoré, 1 ajout → 2 séances');
