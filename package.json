@@ -4,7 +4,9 @@
   "private": true,
   "description": "Carnet de séances de vélo d'appartement — 100 % local, un seul fichier HTML",
   "scripts": {
-    "test": "node tests/coffre-test.js"
+    "test": "node tests/coffre-test.js",
+    "test:smoke": "node tests/smoke-run.js",
+    "icons": "node tools/make-icons.js"
   },
   "repository": {
     "type": "git",

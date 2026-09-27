@@ -1,0 +1,29 @@
+{
+  "name": "HomeBiker — Carnet de séances de vélo d'appartement",
+  "short_name": "HomeBiker",
+  "description": "Carnet de séances de vélo d'appartement — 100 % local, avec coffre de sauvegarde hors navigateur (fichier, partage, copie, QR code).",
+  "lang": "fr",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f6fb",
+  "theme_color": "#4f6df5",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "share_target": {
+    "action": "./index.html",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "titre",
+      "text": "texte",
+      "files": [
+        { "name": "coffre", "accept": ["application/json", "application/octet-stream", "text/plain", ".json"] }
+      ]
+    }
+  }
+}

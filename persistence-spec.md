@@ -2,7 +2,7 @@
 
 - **Projet** : HomeBiker — carnet de séances de vélo d'appartement (`index.html` unique, vanilla JS, zéro dépendance, zéro build)
 - **Date** : 2026-09-27
-- **Statut** : **implémenté** (2026-09-27) — le coffre est livré dans `index.html` ; les écarts d'implémentation sont consignés en §17
+- **Statut** : **implémenté** (2026-09-27) — le coffre est livré dans `index.html` ; les écarts d'implémentation sont consignés en §17. Complément PWA / miroir IndexedDB / partage entrant : §18.
 
 ---
 
@@ -271,8 +271,66 @@ La restauration d'un **appareil vide** (cas DuckDuckGo après effacement : carne
 ## 17. Écarts d'implémentation (constatés pendant la réalisation)
 
 1. **Boutons de sortie** : les quatre canaux (fichier, partage, copie, QR) sont regroupés dans la modale **💾 Sauvegarder** plutôt que dispersés dans la barre d'actions — un seul point d'entrée, la disponibilité du partage natif est détectée avant d'afficher les choix. Le canal téléchargement reste la sortie par défaut du bandeau (§7.1) et du canal partage en cas d'annulation ou d'échec.
-2. **Chiffres QR (§7.4)** : en niveau M la version 40 embarque 2 334 octets de données ; après l'inflation base64 (~1,33×), le plafond utile est d'environ 1 650 octets, soit **~20 séances réelles** plutôt que 25. L'encodage auto-alphabétique des dates peut être envisagé plus tard (format 3) pour remonter à ~25–30 ; l'app affiche déjà le message de repli au-delà de la capacité.
+2. **Chiffres QR (§7.4)** : en niveau M la version 40 embarque 2 334 octets de données ; après l'inflation base64 (~1,33×), le plafond utile est d'environ 1 650 octets, soit **~20 séances réelles** plutôt que 25. *Le format 3 compact a depuis été implémenté (§18.6) : capacité mesurée 71 séances (données variées), ~149 sur des séances parfaitement uniformes (deflate HMBK2 efficace).*
 3. **Restauration, choix fusion/remplacement** : l'aperçu (§8.2) montre l'emprise par profil (existant / à créer, séances déjà présentes) avec avertissements §13 (horodatages futurs, profils même-nom/ids-différents), puis un choix global s'applique à tous les profils du coffre — la variante « choix par profil » n'est pas offerte (UI plus simple, couvre les scénarios §12).
 4. **Profil actif sur appareil vide** : la restauration applique le coffre puis rend actif le **premier profil du coffre** (sinon l'utilisateur verrait un carnet vide après restauration) ; la spec §6 disait « proposé par défaut ».
 5. **Tri, chaînage, avertissement §8.3** : la fusion retire de la carte les sort par date+heure croissants ; l'avertissement de chaînage du §8.3 (chevauchement de compteurs) n'est pas affiché — le chaînage est contrôlé à la saisie/édition, une fusion restaure des valeurs historiques ; à considérer dans une itération si le besoin se confirme.
-6. **Tests** : harnais Node (`.freebuff/coffre-test.js`) validant l'encodeur QR (aller-retour via le décodeur indépendant jsQR, versions 1→40), le codec HMBK2 et le pipeline 25 séances ; smoke UI headless Chromium (`.freebuff/smoke-gen.js` → `.freebuff/smoke-standalone.html`, 19 vérifications : restauration directe + bascule de profil, fusion anti-doublons, bandeau, modales, rejet de contenu étranger).
+6. **Tests** : harnais Node (`tests/coffre-test.js`) validant l'encodeur QR (aller-retour via le décodeur indépendant jsQR, versions 1→40), les codecs HMBK2 **et HMBK3** (§18.6) avec mesure de capacité, et le pipeline 25 séances ; smoke UI headless Chromium (`tests/smoke-gen.js` → `tests/smoke-standalone.html`, 24 vérifications : restauration directe + bascule de profil, fusion anti-doublons, bandeau, modales, rejet de contenu étranger, **installation PWA simulée, coffre reçu en partage via launchQueue**).
+
+---
+
+## 18. Itération 2026-09-27 — PWA, miroir IndexedDB, partage entrant (implémenté)
+
+Complément à la spec d'origine : objectif « application indépendante de l'OS et du navigateur, avec persistance et partage » renforcé au-delà du coffre manuel.
+
+### 18.1 Périmètre retenu (décisions utilisateur)
+
+- PWA **minimale** : `manifest.json` + `sw.js` + icônes PNG (`icons/icon-192.png`, `icons/icon-512.png`, générées par `tools/make-icons.js` via Chrome headless — zéro dépendance). **L'index.html continue de fonctionner seul** en `file://` : SW, IndexedDB et partage entrant sont des améliorations progressives.
+- **Export auto uniquement** en complément du coffre (pas de changement du flux de saisie).
+- **Partage bidirectionnel** : l'app sait désormais aussi **recevoir** un coffre (Web Share Target), pas seulement en émettre.
+
+### 18.2 Couches de persistance (de la plus volatile à la plus durable)
+
+| Couche | Survit à | Mécanisme |
+|---|---|---|
+| Session | reload | variables JS |
+| localStorage | fermeture (navigateur persistant) | inchangé, clé `carnet-trajets-*` |
+| **Miroir IndexedDB** | purge du localStorage | clé `homebiker/kv/instantane`, réécrit (throttle 250 ms) à chaque `save()`/`saveUsers()` |
+| Coffre (fichier) | tout | §7, manuel ou export auto |
+
+- **Restauration auto** : au démarrage, si le localStorage est vide alors que le miroir contient des séances absentes de l'état local → fusion (clé §8.3) + toast « X séance(s) récupérée(s) depuis la copie de secours locale ». Aucune intervention.
+- **`navigator.storage.persist()`** demandé au chargement : signale au navigateur que les données ne doivent pas être purgées (éviction LUB désactivée quand accordé).
+- **Export auto de dernier recours** : si l'onglet devient caché ou se ferme (`visibilitychange`/`pagehide`) alors que `coffreNonSauvegarde > 0` **et** que l'utilisateur a interagi avec la page (un téléchargement sans geste utilisateur est bloqué par les navigateurs) → `telechargerCoffre(buildCoffre())`. Le bandeau est alors soldé. Cas DuckDuckGo inchangé (le navigateur peut tout effacer, y compris IndexedDB) : le coffre reste la seule vraie sortie.
+
+### 18.3 PWA
+
+- `manifest.json` : `start_url=./index.html`, `scope=./`, `display: standalone`, icônes any + maskable (fond blanc, logo 78 %), `theme_color`/`background_color` alignés sur l'app.
+- `sw.js` (cache `homebiker-v1`, version manuelle) : précache des 5 fichiers de l'app ; **cache-first + rafraîchissement en arrière-plan** (navigation et assets) ; navigation preload ; `SKIP_WAITING` + `controllerchange` → reload pour appliquer une nouvelle version.
+- Installabilité : bouton **⬇ Installer l'application** masqué sauf `beforeinstallprompt` (Chromium) ; bandeau **📲 Installer** discret (masquable définitivement, mémorisé) hors mode standalone ; iOS : aide contextuelle (« Ajouter à l'écran d'accueil ») car pas d'événement d'installation. Une app installée est **exemptée de la purge ITP 7 jours** sur iOS (WebKit) et bénéficie d'un stockage plus fiable sur Android.
+
+### 18.4 Partage entrant (Web Share Target)
+
+- Manifest : `share_target` POST `multipart/form-data` → champs `titre`, `texte`, fichier `coffre` (json/octet-stream/text/plain).
+- Voie 1 (navigateurs récents) : le fichier partagé arrive via **`launchQueue`** — consommateur enregistré **au chargement** (pas dans l'IIFE liée au hash) pour survivre au cas « app déjà ouverte ».
+- Voie 2 (multipart POST) : le **service worker** extrait le contenu du formulaire, le dépose dans le cache `homebiker-partage` (clé `coffre-entrant`) et redirige (303) vers `./index.html#partage-entrant` ; la page lit puis supprime l'entrée, décode `HMBK2:`/JSON et ouvre l'aperçu §8.2 (fusion ou remplacement — jamais d'écriture silencieuse).
+- La restauration réutilise intégralement `appliquerCoffre` : mêmes avertissements, mêmes comptes, `voie: 'share'`.
+- Décodage des coffres texte : `HMBK2:` (décompression) **ou `HMBK3:` (compact, §18.6)** ou JSON brut — partout (collé, QR scanné, partagé).
+
+### 18.5 Tests
+
+- `tests/coffre-test.js` : codecs HMBK2 + HMBK3 (aller-retours, repli hors domaine), mesure de capacité QR, pipeline 25 séances — **passe**.
+- `tests/smoke-gen.js` : + vérifications PWA — le harnais **mocke `launchQueue`** (via `Object.defineProperty` : Chrome expose déjà un getter non écrivable, une simple affectation échoue en silence) et **`beforeinstallprompt`** (dispatché au bon endroit du script, le listener doit exister) ; injection par points d'ancrage identifiés (`let traite = false;`, `$('#btn-installer').addEventListener`) avec échec explicite si l'app ne les contient plus ; scénario « coffre reçu en partage → fusion → profil créé » en fin de harnais (l'appareil est alors non vide). **24/24 OK** sous Chrome headless.
+- Le partage d'un coffre détruit le contenu initial de `#restore-body` (réinjecté à la prochaine ouverture de ♻ Restaurer) : les vérifications génériques de la modale sont donc placées **avant** le scénario de partage.
+
+### 18.6 Codec compact « HMBK3: » (capacité QR ≈ 30→70 séances)
+
+Motivation (§17.2) : le JSON base64+deflate se déflate mal — les dates/heures
+répétitives sont déjà des chaînes courtes, et l'inflation base64 (+33 %) mange
+le gain. Un encodage positionnel compact divise la longueur par ~2,5.
+
+- **Format** (6 champs séparés par `|`) : `H` (version) · nombre de profils (2 ch. base36) · ids préfixés par leur longueur (`0` = absent → régénéré) · noms préfixés par leur longueur (2 ch.) · corps des séances (2 ch. par profil = nombre, puis blocs de 39 caractères) · préférences de couches (`0` ou `1xyz`).
+- **Bloc séance (39 ch. base36)** : jours depuis 2020-01-01 (5) · heure début en minutes (3) · heure fin (3) · compteur début en dixièmes (6) · compteur fin (6) · force (1) · distance en dixièmes (6) · `maj` : `0` ou `1` + secondes depuis l'époque (8).
+- **Domaines** : séances ≥ 2020, compteurs < 999 999,9 km, force 0–8, décimales ≤ 1, nom sans `|` (≤ 1 295 ch.), id alphanumérique ≤ 8 ch. Hors domaine → `null`, l'export bascule en HMBK2 (jamais d'échec silencieux).
+- **Choix du codec** : `encodeCoffreCourt()` produit HMBK2 **et** HMBK3, garde le plus court — c'est lui qui alimente « Copier le coffre » et « Afficher le QR ». Sur des séances parfaitement uniformes HMBK2 deflate mieux et redevient plus court : le choix est fait à chaque export.
+- **Fidélité** : `maj` restitué à la seconde près (sans `.000Z`) — la fusion §8.3 compare des ISO `YYYY-MM-DDTHH:MM:SS`, l'ordre lexicographique reste correct. Le fichier/partage reste en format 2 JSON intégral.
+- **Capacité mesurée** (QR v40 ECC M, 2 334 octets) : **71 séances** (données variées réalistes), **149** sur séances uniformes (HMBK2 deflate alors très efficace) — contre ~20 avant.

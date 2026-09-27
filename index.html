@@ -6,6 +6,13 @@
   <meta name="color-scheme" content="light dark">    <title>HomeBiker — Carnet de séances de vélo d'appartement</title>
     <meta name="description" content="Carnet de séances de vélo d'appartement — 100 % local, avec coffre de sauvegarde hors navigateur (fichier, partage, copie, QR code).">
   <link rel="icon" type="image/svg+xml" href="homeBiker.svg">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <meta name="theme-color" content="#4f6df5" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#12151c" media="(prefers-color-scheme: dark)">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <style>
     :root {
       --bg: #f4f6fb;
@@ -289,6 +296,10 @@
     .save-band .btn-ghost:hover { color: var(--danger); }
     .save-band[hidden] { display: none; }
 
+    /* ---- Bouton « Installer l'application » (disponible quand le navigateur sait le faire) ---- */
+    #btn-installer { display: none; }
+    #btn-installer.visible { display: inline-block; }
+
     /* ---- Modale Restaurer / QR ---- */
     .tabs { display: flex; gap: 4px; margin-bottom: 14px; flex-wrap: wrap; }
     .tab {
@@ -439,6 +450,13 @@
       <button type="button" class="btn-primary" id="save-band-go">💾 Sauvegarder</button>
     </div>
 
+    <div class="save-band" id="install-band" hidden>
+      <span class="save-msg" id="install-band-msg">📲 Installer l'application pour garder vos données en sécurité.</span>
+      <span style="flex:1"></span>
+      <button type="button" class="btn-ghost" id="install-band-dismiss" title="Masquer pour toujours">✕</button>
+      <button type="button" class="btn-primary" id="install-band-go">📲 Installer</button>
+    </div>
+
     <section class="card" id="form-card">
       <form id="form">
         <div class="field">
@@ -508,6 +526,7 @@
           <button type="button" class="btn-ghost" id="import">⬆ Importer un CSV</button>
           <button type="button" class="btn-ghost" id="export">⬇ Exporter en CSV</button>
           <button type="button" class="btn-ghost" id="save" title="Coffre : tous les profils et carnets dans un fichier hors navigateur">💾 Sauvegarder</button>
+          <button type="button" class="btn-ghost" id="btn-installer" title="Installer l'application sur l'écran d'accueil (stockage persistant, hors-ligne)">⬇ Installer l'application</button>
           <button type="button" class="btn-ghost" id="clear">Tout effacer</button>
         </div>
         <input type="file" id="file-input" accept=".csv,text/csv" hidden>
@@ -597,7 +616,7 @@
             <div id="restore-file-name" style="font-size:.85rem;color:var(--muted);word-break:break-all;"></div>
           </div>
           <div id="pane-paste" hidden>
-            <p>Collez un coffre copié depuis un autre appareil (texte <code>HMBK2:…</code> ou JSON brut).</p>
+            <p>Collez un coffre copié depuis un autre appareil (texte <code>HMBK2:…</code> / <code>HMBK3:…</code> ou JSON brut).</p>
             <textarea id="restore-paste" class="modal-input ta" placeholder="HMBK2:…"></textarea>
           </div>
           <div id="pane-scan" hidden>
@@ -639,6 +658,7 @@
 
     // État du « coffre de secours » (déclaré tôt : save()/saveUsers() y font appel)
     const COFFRE_PREFIX = 'HMBK2:';
+    const COFFRE3_PREFIX = 'HMBK3:';
     const COFFRE_COUNTER_KEY = 'carnet-trajets-coffre-counter';
     let coffreNonSauvegarde = parseInt(localStorage.getItem(COFFRE_COUNTER_KEY) || '0', 10) || 0;
     let majAutoActivee = false; // la restauration ne déclenche pas le bandeau
@@ -654,7 +674,7 @@
       }
     }
     if (!users.some((u) => u.id === userId)) userId = users[0].id;
-    const saveUsers = () => { localStorage.setItem(USERS_KEY, JSON.stringify(users)); localStorage.setItem(CURRENT_KEY, userId); };
+    let saveUsers = () => { localStorage.setItem(USERS_KEY, JSON.stringify(users)); localStorage.setItem(CURRENT_KEY, userId); };
     saveUsers(); // persiste le(s) profil(s) dès le démarrage (évite des séances orphelines après reload)
     const currentUser = () => users.find((u) => u.id === userId);
     const hueOf = (s) => { let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) % 360; return h; };
@@ -691,7 +711,7 @@
       return `<span class="badge ${cls}">${f}</span>`;
     };
 
-    const save = () => { localStorage.setItem(tripKey(userId), JSON.stringify(trajets)); notifierModification(); };
+    let save = () => { localStorage.setItem(tripKey(userId), JSON.stringify(trajets)); notifierModification(); };
     // Références remontées pour le module « coffre » : render et renderUserBar sont
     // définies plus bas (restauration et fusion ont besoin de rafraîchir la vue
     // immédiatement, avant leur définition dans l'ordre du fichier).
@@ -957,7 +977,7 @@
       return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${qr.size} ${qr.size}" role="img" aria-label="QR code du coffre de sauvegarde HomeBiker"><rect width="100%" height="100%" fill="var(--card)"/><path d="${parts.join(' ')}" stroke="none" fill="var(--text)"/></svg>`;
     };
 
-    // ---- Codec « HMBK2: » (texte compressé du coffre)
+    // ---- Codec « HMBK2: » (texte compressé du coffre) + codec compact « HMBK3: »
     const b64urlEncode = (bytes) => {
       let bin = '';
       for (const b of bytes) bin += String.fromCharCode(b);
@@ -984,6 +1004,17 @@
       }
       return COFFRE_PREFIX + (compressed ? 'Z' : 'R') + b64urlEncode(payload);
     };
+    // Pour le copier-coller et le QR : les deux codecs sont produits, le plus court
+    // gagne (typiquement HMBK3 dès qu'il y a quelques séances ; HMBK2 reste disponible
+    // pour les lecteurs de l'ancienne version et pour les valeurs hors domaine).
+    const encodeCoffreCourt = async (coffre) => {
+      const t2 = await encodeCoffreText(coffre);
+      try {
+        const t3 = encoderCoffreCompact(coffre);
+        if (t3 && t3.length < t2.length) return COFFRE3_PREFIX + t3;
+      } catch (e) { /* valeur hors domaine : HMBK2 seul */ }
+      return t2;
+    };
     const decodeCoffreText = async (text) => {
       const t = text.trim();
       if (t.startsWith(COFFRE_PREFIX)) {
@@ -999,7 +1030,110 @@
         }
         return JSON.parse(new TextDecoder().decode(bytes));
       }
+      if (t.startsWith(COFFRE3_PREFIX)) return decoderCoffreCompact(t.slice(COFFRE3_PREFIX.length));
       return JSON.parse(t); // JSON brut
+    };
+
+    // ---- Codec compact « HMBK3: » (séances en base36, sans compression)
+    // Rôle : le QR. Les dates/heures/valeurs répétitives du JSON se déflatent mal
+    // une fois encodées en base64 ; un encodage binaire compact tient ~50 % de
+    // caractères en moins, soit ~30 séances par QR au lieu de ~20 (§17.2).
+    // Champ d'application : sorties copie/QR uniquement. Le coffre complet
+    // (fichier, partage) reste en format 2 JSON, fidèle et lisible.
+    // Valeurs hors domaines (séance avant 2020, compteur > 999 999,9 km, force > 8,
+    // décimales > 1) → le codec compact n'est pas utilisé (repli HMBK2).
+    const COFFRE3_EPOQUE = Date.UTC(2020, 0, 1);
+    const encoderCoffreCompact = (coffre) => {
+      const d36 = (n, l) => n.toString(36).toUpperCase().padStart(l, '0');
+      const seancesD36 = (seances) => seances.map((t) => {
+        if (t.maj && !/^\d{4}-\d{2}-\d{2}T/.test(t.maj)) return null;
+        const jours = Math.round((Date.UTC(+t.date.slice(0, 4), +t.date.slice(5, 7) - 1, +t.date.slice(8, 10)) - COFFRE3_EPOQUE) / 86400000);
+        if (!Number.isFinite(jours) || jours < 0 || jours > 60466175) return null;
+        const min = (s) => { const [h, m] = String(s).split(':').map(Number); return (Number.isFinite(h) && Number.isFinite(m) && h >= 0 && h < 24 && m >= 0 && m < 60) ? h * 60 + m : -1; };
+        const md = min(t.de), ma = min(t.a);
+        if (md < 0 || ma < 0) return null;
+        if (![t.depart, t.arrivee, t.distance].every((x) => Number.isFinite(x) && x >= 0 && x < 10000000 && Math.round(x * 10) === Math.round(x * 10))) return null;
+        if (!Number.isInteger(t.force) || t.force < 0 || t.force > 8) return null;
+        const majSec = t.maj ? Math.round((Date.parse(t.maj) - COFFRE3_EPOQUE) / 1000) : null;
+        if (majSec !== null && (!Number.isFinite(majSec) || majSec < 0 || majSec > 2821109907455)) return null;
+        return [
+          d36(jours, 5), d36(md, 3), d36(ma, 3),
+          d36(Math.round(t.depart * 10), 6), d36(Math.round(t.arrivee * 10), 6),
+          d36(t.force, 1),
+          d36(Math.round(t.distance * 10), 6),
+          majSec === null ? '0' : '1' + d36(majSec, 8),
+        ].join('');
+      });
+      const groupes = coffre.profils.map((p) => seancesD36(p.seances));
+      if (groupes.some((g) => g.some((s) => s === null))) return null;
+      // Le '|' sert de séparateur : un nom qui le contient (ou trop long pour le
+      // préfixe de longueur base36 à 2 chiffres) bascule le coffre en HMBK2.
+      if (coffre.profils.some((p) => !p.nom || p.nom.length > 1295 || /[|]/.test(p.nom))) return null;
+      const prefs = coffre.prefs && coffre.prefs.couches;
+      const couches = (prefs && ['dist', 'vit', 'slot'].every((k) => prefs[k] === '0' || prefs[k] === '1'))
+        ? ['1', d36(prefs.dist === '0' ? 0 : 1, 1), d36(prefs.vit === '0' ? 0 : 1, 1), d36(prefs.slot === '0' ? 0 : 1, 1)].join('')
+        : '0';
+      return [
+        'H', // version du format compact
+        d36(coffre.profils.length, 2),
+        coffre.profils.map((p) => (p.id && /^[a-z0-9]+$/i.test(p.id) && p.id.length <= 8 ? d36(p.id.length, 1) + p.id : '0')).join(''),
+        coffre.profils.map((p) => d36(p.nom.length, 2) + p.nom).join(''),
+        coffre.profils.map((p, i) => d36(p.seances.length, 2) + groupes[i].join('')).join(''),
+        couches,
+      ].join('|');
+    };
+    const decoderCoffreCompact = (texte) => {
+      const p36 = (s) => parseInt(s, 36);
+      const parts = texte.split('|');
+      if (parts.length !== 6 || parts[0] !== 'H') throw new Error('format');
+      const nProfils = p36(parts[1]);
+      if (!Number.isInteger(nProfils) || nProfils < 1 || nProfils > 1296 || parts[3].length < nProfils * 2) throw new Error('format');
+      // ids préfixés par leur longueur ('0' = absent → régénéré à la restauration)
+      const ids = [];
+      for (let i = 0; i < parts[2].length;) {
+        const l = p36(parts[2][i]); if (!Number.isInteger(l) || l > 8 || (l && i + 1 + l > parts[2].length)) throw new Error('format');
+        ids.push(l ? parts[2].slice(i + 1, i + 1 + l) : null); i += 1 + l;
+      }
+      if (ids.length !== nProfils) throw new Error('format');
+      // noms préfixés par leur longueur (2 chiffres base36)
+      const noms = [];
+      for (let i = 0; i < parts[3].length;) {
+        const l = p36(parts[3].slice(i, i + 2)); if (!Number.isInteger(l) || i + 2 + l > parts[3].length) throw new Error('format');
+        noms.push(parts[3].slice(i + 2, i + 2 + l)); i += 2 + l;
+      }
+      if (noms.length !== nProfils) throw new Error('format');
+      const dateDe = (jours) => new Date(COFFRE3_EPOQUE + jours * 86400000).toISOString().slice(0, 10);
+      const heureDe = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+      const maintenant = new Date().toISOString().slice(0, 19);
+      const profils = [];
+      let curseur = 0;
+      const corps = parts[4];
+      for (let i = 0; i < nProfils; i++) {
+        const n = p36(corps.slice(curseur, curseur + 2)); curseur += 2;
+        if (!Number.isInteger(n) || curseur + n * 39 > corps.length) throw new Error('format');
+        const seances = [];
+        for (let j = 0; j < n; j++) {
+          const b = corps.slice(curseur, curseur + 39); curseur += 39;
+          const jours = p36(b.slice(0, 5));
+          if (!Number.isInteger(jours) || jours < 0 || jours > 60466175) throw new Error('format');
+          const depart = p36(b.slice(11, 17)) / 10, arrivee = p36(b.slice(17, 23)) / 10;
+          const force = p36(b[23]);
+          const distance = p36(b.slice(24, 30)) / 10;
+          const majPresent = b[30] === '1';
+          if (force > 8) throw new Error('format');
+          const seance = { date: dateDe(jours), de: heureDe(p36(b.slice(5, 8))), a: heureDe(p36(b.slice(8, 11))), depart, arrivee, force, distance };
+          if (majPresent) {
+            const majSec = p36(b.slice(31, 39));
+            if (Number.isFinite(majSec)) seance.maj = new Date(COFFRE3_EPOQUE + majSec * 1000).toISOString().slice(0, 19);
+          } else seance.maj = maintenant;
+          seances.push(seance);
+        }
+        profils.push({ id: ids[i] || undefined, nom: noms[i], seances });
+      }
+      const couches = parts[5] && parts[5][0] === '1' ? { dist: p36(parts[5][1]) ? '1' : '0', vit: p36(parts[5][2]) ? '1' : '0', slot: p36(parts[5][3]) ? '1' : '0' } : undefined;
+      const coffre = { app: 'homebiker', format: 2, exporte: new Date().toISOString(), profils };
+      if (couches) coffre.prefs = { couches };
+      return coffre;
     };
 
     // ---- Construction du coffre (format 2) et nommage du fichier
@@ -1271,7 +1405,7 @@
         ctx.drawImage(video, 0, 0);
         try {
           const codes = await detector.detect(canvas);
-          const hit = (codes || []).find((c) => (c.rawValue || '').startsWith(COFFRE_PREFIX));
+          const hit = (codes || []).find((c) => (c.rawValue || '').startsWith(COFFRE_PREFIX) || (c.rawValue || '').startsWith(COFFRE3_PREFIX));
           if (hit) {
             stopScan();
             let coffre = null;
@@ -1387,7 +1521,7 @@
         if (!coffre || coffre.app !== 'homebiker' || coffre.format !== 2) {
           await showCoffreModal({
             icon: '⚠️', title: 'Coffre illisible',
-            bodyHTML: '<p>Le texte collé n\'est pas un coffre HomeBiker valide (préfixe <code>HMBK2:</code> ou JSON du coffre attendu). Aucune donnée n\'a été modifiée.</p>',
+            bodyHTML: '<p>Le texte collé n\'est pas un coffre HomeBiker valide (préfixe <code>HMBK2:</code>/<code>HMBK3:</code> ou JSON du coffre attendu). Aucune donnée n\'a été modifiée.</p>',
             actions: [{ label: 'Fermer', variant: 'primary', esc: true, enter: true }],
           });
           return;
@@ -1400,7 +1534,7 @@
     // ---- Modale QR (affichage) : onglets via bodyHTML + onOpen
     const afficherQR = async () => {
       const coffre = buildCoffre();
-      const texte = await encodeCoffreText(coffre);
+      const texte = await encodeCoffreCourt(coffre);
       let svg = null;
       try {
         const enc = new TextEncoder().encode(texte);
@@ -1437,7 +1571,7 @@
       if (choix === 'copie') {
         const coffre = buildCoffre();
         marquerSauvegardeFait();
-        const texte = await encodeCoffreText(coffre);
+        const texte = await encodeCoffreCourt(coffre);
         const tailleOk = texte.length <= 100000;
         if (!tailleOk) {
           await showCoffreModal({
@@ -1447,12 +1581,235 @@
           });
           return;
         }
-        try { await navigator.clipboard.writeText(texte); showToast('✓ Coffre copié (texte HMBK2)'); }
+        try { await navigator.clipboard.writeText(texte); showToast('✓ Coffre copié (texte ' + texte.slice(0, 5) + ')'); }
         catch (e) { showToast('⚠ Copie impossible — utilisez Télécharger'); }
         return;
       }
       if (choix === 'qr') return afficherQR();
     });
+
+    /* ================= PWA : installation, stockage persistant, partage entrant ================= */
+
+    // ---- Storage persistant : demande au navigateur de ne jamais purger les données.
+    if (navigator.storage && navigator.storage.persist) {
+      navigator.storage.persist().catch(() => {});
+    }
+
+    // ---- Miroir IndexedDB : seconde copie des données, hors localStorage.
+    // Inaccessible ou purgé (DuckDuckGo, ITP, fichiers et sites en privé) : l'app se
+    // contente du localStorage, et le coffre reste le filet de secours universel.
+    const IDB_OK = (() => { try { return !!window.indexedDB && !/file:/i.test(location.protocol); } catch { return false; } })();
+    let idbPrive = null; // closed-by-test hook
+    const idbOuvrir = () => {
+      if (idbPrive) return idbPrive;
+      if (!IDB_OK) return Promise.reject(new Error('indexedDB indisponible'));
+      idbPrive = new Promise((resolve, reject) => {
+        const demande = indexedDB.open('homebiker', 1);
+        demande.onupgradeneeded = () => {
+          const db = demande.result;
+          if (!db.objectStoreNames.contains('kv')) db.createObjectStore('kv');
+        };
+        demande.onsuccess = () => resolve(demande.result);
+        demande.onerror = () => reject(demande.error);
+      });
+      return idbPrive;
+    };
+    const idbSet = async (cle, valeur) => {
+      const db = await idbOuvrir();
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction('kv', 'readwrite');
+        tx.objectStore('kv').put(valeur, cle);
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error);
+      });
+    };
+    const idbGet = async (cle) => {
+      const db = await idbOuvrir();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction('kv', 'readonly');
+        const demande = tx.objectStore('kv').get(cle);
+        demande.onsuccess = () => resolve(demande.result);
+        demande.onerror = () => reject(demande.error);
+      });
+    };
+
+    // Instantané complet (tous profils) — partagé par le miroir et l'export auto.
+    const instantane = () => ({
+      app: 'homebiker', miroir: 1, exporte: new Date().toISOString(),
+      profils: users.map((u) => ({
+        id: u.id, nom: u.name,
+        seances: (u.id === userId ? trajets : loadJSON(tripKey(u.id), [])),
+      })),
+      userId,
+    });
+
+    // Fusion d'un instantané dans l'état courant (clé identité = §8.3 du coffre).
+    // Retourne le nombre de séances récupérées, ou 0 si rien à faire.
+    const cleT = (t) => [t.date, t.de, t.a, t.depart, t.arrivee].join('|');
+    const fusionnerInstantane = (snap) => {
+      if (!snap || snap.app !== 'homebiker' || !Array.isArray(snap.profils)) return 0;
+      let recuperees = 0;
+      for (const p of snap.profils) {
+        if (!p || !Array.isArray(p.seances) || !p.seances.length) continue;
+        let u = users.find((x) => x.id === p.id) || users.find((x) => norm(x.name) === norm(p.nom || ''));
+        if (!u) { u = { id: p.id || ('u' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5)), name: p.nom || 'Profil' }; users.push(u); }
+        const locaux = (u.id === userId ? trajets : loadJSON(tripKey(u.id), [])).slice();
+        const parCle = new Map(locaux.map((t) => [cleT(t), t]));
+        for (const t of p.seances) {
+          if (!t || !t.date) continue;
+          const local = parCle.get(cleT(t));
+          if (!local || (t.maj && t.maj > (local.maj || ''))) { parCle.set(cleT(t), t); if (!local) recuperees++; }
+        }
+        const fusionnes = [...parCle.values()].sort((x, y) => (x.date + x.de).localeCompare(y.date + y.de));
+        if (u.id === userId) trajets = fusionnes; else localStorage.setItem(tripKey(u.id), JSON.stringify(fusionnes));
+      }
+      return recuperees;
+    };
+
+    // ---- Restauration auto au démarrage : si le localStorage a été purgé mais que
+    // le miroir IndexedDB a survécu, le carnet est reconstruit sans aucune action.
+    (async () => {
+      if (!IDB_OK) return;
+      try {
+        const snap = await idbGet('instantane');
+        if (!snap || !Array.isArray(snap.profils)) return;
+        const totalLocal = users.reduce((s, u) => s + (u.id === userId ? trajets : loadJSON(tripKey(u.id), [])).length, 0);
+        const recuperees = fusionnerInstantane(snap);
+        if (!recuperees) return;
+        majAutoActivee = true;
+        saveUsers();
+        renderUserBar();
+        render();
+        marquerSauvegardeFait();
+        majAutoActivee = false;
+        showToast(`✓ ${recuperees} séance(s) récupérée(s) depuis la copie de secours locale (${totalLocal} présente(s))`);
+      } catch (e) { /* miroir absent ou corrompu : le localStorage fait foi */ }
+    })();
+
+    // ---- Écriture du miroir : au démarrage + à chaque sauvegarde (save/saveUsers).
+    // L'écriture est déclenchée sur saveUsers pour couvrir profils + carnet actif ;
+    // elle est aussi appelée à la fin de save() quand le carnet actif change seul.
+    let miroirTimer = null;
+    const ecrireMiroir = () => {
+      clearTimeout(miroirTimer);
+      miroirTimer = setTimeout(() => { idbSet('instantane', instantane()).catch(() => {}); }, 250);
+    };
+    if (IDB_OK) {
+      ecrireMiroir();
+      const _save = save;
+      save = function () { _save(); ecrireMiroir(); };
+      const _saveUsers = saveUsers;
+      saveUsers = function () { _saveUsers(); ecrireMiroir(); };
+    }
+
+    // ---- Enregistrement du service worker (hors-ligne + installabilité + partage entrant).
+    if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+      navigator.serviceWorker.register('sw.js').then((reg) => {
+        // Un SW en attente signifie qu'une nouvelle version est prête : on l'active tout de suite.
+        if (reg.waiting) reg.waiting.postMessage('SKIP_WAITING');
+        reg.addEventListener('updatefound', () => {
+          const nv = reg.installing;
+          if (nv) nv.addEventListener('statechange', () => { if (nv.state === 'installed' && navigator.serviceWorker.controller) nv.postMessage('SKIP_WAITING'); });
+        });
+      }).catch(() => {});
+      let recharger = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => { if (recharger) location.reload(); recharger = true; });
+    }
+
+    // ---- Partage entrant (Web Share Target Android) : un coffre partagé vers
+    // HomeBiker depuis une autre application est restauré ici (fusion).
+    // Deux voies possibles : launchQueue (fichier, navigateurs récents) ou le
+    // cache « homebiker-partage » rempli par le service worker (POST multipart).
+    const restaurerFichier = async (file) => {
+      let coffre = null;
+      try { coffre = await decodeCoffreText(await file.text()); } catch (e) { coffre = null; }
+      if (!coffre || coffre.app !== 'homebiker' || coffre.format !== 2) { showToast('⚠ Fichier partagé : coffre HomeBiker non reconnu'); return; }
+      await appliquerCoffre(coffre, 'share');
+    };
+    let traite = false;
+    if ('launchQueue' in window) {
+      // Consommateur enregistré au chargement : le partage peut arriver à l'ouverture
+      // de l'app (hash #partage-entrant) ou pendant qu'elle est déjà ouverte.
+      window.launchQueue.setConsumer(async (params) => {
+        if (!params || !params.files || !params.files.length) return;
+        try {
+          const handles = await Promise.all(params.files.map((h) => h.getFile()));
+          traite = true;
+          for (const f of handles) await restaurerFichier(f);
+        } catch (e) { showToast('⚠ Fichier partagé illisible'); }
+      });
+    }
+    (async () => {
+      if (location.hash !== '#partage-entrant') return;
+      try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { /* */ }
+      // Voie service worker : le POST a été converti en entrée de cache.
+      setTimeout(async () => {
+        if (traite || typeof caches === 'undefined' || !caches) return;
+        try {
+          const cache = await caches.open('homebiker-partage');
+          const rep = await cache.match('coffre-entrant');
+          if (!rep) return;
+          const contenu = await rep.text();
+          await cache.delete('coffre-entrant');
+          const coffre = await decodeCoffreText(contenu);
+          if (coffre && coffre.app === 'homebiker' && coffre.format === 2) await appliquerCoffre(coffre, 'share');
+          else showToast('⚠ Contenu partagé : coffre HomeBiker non reconnu');
+        } catch (e) { showToast('⚠ Contenu partagé illisible'); }
+      }, 350);
+    })();
+
+    // ---- Bouton « Installer l'application » (beforeinstallprompt : Chromium).
+    let installationDifferree = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      installationDifferree = e;
+      $('#btn-installer').classList.add('visible');
+    });
+    window.addEventListener('appinstalled', () => {
+      installationDifferree = null;
+      $('#btn-installer').classList.remove('visible');
+      $('#install-band').hidden = true;
+      showToast('✓ Application installée — données désormais protégées de la purge');
+    });
+    $('#btn-installer').addEventListener('click', async () => {
+      if (!installationDifferree) {
+        showToast("Installation non disponible ici — utilisez « Ajouter à l'écran d'accueil » du menu du navigateur");
+        return;
+      }
+      installationDifferree.prompt();
+      const { outcome } = await installationDifferree.userChoice.catch(() => ({ outcome: 'dismissed' }));
+      if (outcome === 'accepted') showToast('✓ Installation lancée — suivez les instructions du navigateur');
+      installationDifferree = null;
+      $('#btn-installer').classList.remove('visible');
+    });
+    $('#install-band-go').addEventListener('click', () => $('#btn-installer').click());
+    $('#install-band-dismiss').addEventListener('click', () => {
+      $('#install-band').hidden = true;
+      try { localStorage.setItem('carnet-trajets-install-dismiss', '1'); } catch (e) { /* */ }
+    });
+    setTimeout(() => {
+      let dissimule = false;
+      try { dissimule = localStorage.getItem('carnet-trajets-install-dismiss') === '1'; } catch (e) { /* */ }
+      const dejaStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+      if (!installationDifferree && !dissimule && !dejaStandalone) $('#install-band').hidden = false;
+    }, 1200);
+
+    // ---- Export automatique du coffre au moment de quitter l'onglet (repli quand
+    // rien d'autre ne garantit la persistance). Le téléchargement est un geste
+    // utilisateur : ce filet ne peut s'abaisser que si l'utilisateur a déjà
+    // interagi avec la page ; dans le cas contraire le coffre reste manuel.
+    let interaction = false;
+    ['pointerdown', 'keydown'].forEach((ev) => window.addEventListener(ev, () => { interaction = true; }, { once: true, capture: true }));
+    let exportEnCours = false;
+    const exporterSiNecessaire = () => {
+      if (!interaction || exportEnCours || !coffreNonSauvegarde) return;
+      exportEnCours = true;
+      telechargerCoffre(buildCoffre());
+      marquerSauvegardeFait();
+    };
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') exporterSiNecessaire(); });
+    window.addEventListener('pagehide', exporterSiNecessaire);
 
     // ---- Bandeau « sauvegarde à faire »
     function majBandeau() {

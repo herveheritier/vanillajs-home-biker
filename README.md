@@ -53,9 +53,20 @@ Vos données restent dans votre navigateur.
 - **Coffre de secours** : sauvegarde **complète** (tous les profils, tous les
   carnets, préférences) en un clic, **hors du navigateur** — fichier daté,
   partage natif, copie de texte ou **QR code** ; restauration par fichier,
-  texte collé ou scan QR, avec **fusion anti-doublons** ou remplacement ;
-  bandeau de rappel discret après chaque modification (indispensable dans les
+  texte collé, scan QR **ou réception d'un coffre partagé depuis une autre
+  application**, avec **fusion anti-doublons** ou remplacement ; bandeau de
+  rappel discret après chaque modification (indispensable dans les
   navigateurs qui effacent le stockage à la fermeture)
+- **Application installable (PWA)** : bouton « ⬇ Installer l'application »
+  (ou « 📲 Installer ») — une fois installée sur l'écran d'accueil, l'app
+  tourne **hors-ligne** dans sa propre fenêtre et son stockage devient
+  **persistant** (protection contre les purges de type Safari/ITP)
+- **Copie de secours locale (IndexedDB)** : chaque sauvegarde est aussi
+  écrite dans une **seconde base** du navigateur ; si le localStorage est
+  purgé, le carnet est **reconstruit automatiquement** au démarrage suivant
+- **Filet de sortie** : en cas de fermeture d'onglet avec des modifications
+  non sauvegardées, l'app tente un **export automatique du coffre** (si le
+  navigateur l'autorise) — le fichier se retrouve dans Téléchargements
 - **Multi-profils** : chaque utilisateur a son carnet isolé, avec
   ajout/renommage/suppression, et une **vue consolidée** de tous les carnets
   (statistiques, récapitulatif par utilisateur, détail de toutes les séances)
@@ -111,10 +122,10 @@ les carnets dans un seul fichier JSON — à conserver **hors du navigateur**.
 - **💾 Sauvegarder** propose, selon ce que le navigateur sait faire :
   **📤 Partager** (feuille de partage Android/iOS), **⬇ Télécharger** un
   fichier daté `homebiker-sauvegarde-AAAA-MM-JJ-HHMM.json`, **📋 Copier le
-  coffre** (texte compressé `HMBK2:…`, à coller dans des notes ou un e-mail
-  privé) ou **🔳 Afficher le QR** (transfert direct vers un autre appareil,
-  carnet de 20 à 30 séances selon la compression ; au-delà, le fichier ou la
-  copie prennent le relais).
+  coffre** (texte compact `HMBK3:…` ou compressé `HMBK2:…`, à coller dans
+  des notes ou un e-mail privé) ou **🔳 Afficher le QR** (transfert direct
+  vers un autre appareil, de l'ordre de 30 à 70 séances selon les données ;
+  au-delà, le fichier ou la copie prennent le relais).
 - **♻ Restaurer** ouvre un coffre par **fichier**, **texte collé** ou **scan
   d'un QR** affiché sur l'autre appareil. Un aperçu présente chaque profil
   (existant, à créer, séances déjà présentes) puis vous choisissez
@@ -127,6 +138,14 @@ les carnets dans un seul fichier JSON — à conserver **hors du navigateur**.
   appareil, transmettez le fichier (ou affichez le QR), restaurez en
   **fusion** sur le second — et inversement quand vous avez saisi sur
   l'ordinateur.
+- **Recevoir un coffre en partage** (Android, app installée) : depuis une
+  autre application (Fichiers, Drive, messagerie…), choisissez
+  **Partager → HomeBiker** : le coffre est restauré directement, avec le
+  même choix fusion/remplacement.
+- **Copie de secours locale** : en arrière-plan, l'app maintient une copie
+  de tous les carnets dans IndexedDB. Après une purge du localStorage
+  (hors de contrôle de l'app), la copie est réinjectée automatiquement au
+  démarrage — sans action de votre part.
 - L'export/import CSV reste disponible, inchangé, pour Excel/LibreOffice.
 
 ### Vue consolidée
@@ -147,23 +166,44 @@ un éventuel ancien carnet unique vers le profil « Moi ».
 
 ## 🔒 Données & confidentialité
 
-Tout est stocké dans le **localStorage de votre navigateur** : rien ne sort
-de votre machine, aucun compte, aucun tracker, aucun réseau. Pour ne rien
-perdre (navigation privée, navigateur qui efface les données à la fermeture,
-changement d'appareil…), faites régulièrement un **💾 Sauvegarder** : le
-coffre produit un fichier complet à conserver **chez vous**
-(Téléchargements, Drive, e-mail) — il ne quitte votre appareil que si vous
-le partagez vous-même. Le texte du coffre contient vos données : ne le
-collez que dans des canaux privés. L'export CSV reste disponible pour
+Tout est stocké **sur votre appareil** : localStorage (données courantes),
+IndexedDB (copie de secours), coffre exporté (fichier hors navigateur).
+Rien ne sort de votre machine, aucun compte, aucun tracker, aucun réseau —
+le service worker se contente de mettre en cache les fichiers de l'app
+lui-même. Pour ne rien perdre (navigation privée, navigateur qui efface les
+données à la fermeture, changement d'appareil…), faites régulièrement un
+**💾 Sauvegarder** : le coffre produit un fichier complet à conserver
+**chez vous** (Téléchargements, Drive, e-mail) — il ne quitte votre appareil
+que si vous le partagez vous-même. Le texte du coffre contient vos données :
+ne le collez que dans des canaux privés. L'export CSV reste disponible pour
 Excel/LibreOffice.
+
+### Installer l'application
+
+Ouvrez l'app dans Chrome/Edge (ordinateur ou Android) : le bouton
+**⬇ Installer l'application** (ou le bandeau **📲 Installer**) ajoute
+HomeBiker à votre écran d'accueil / votre bureau. Bénéfices :
+
+- **Fenêtre dédiée**, sans barre d'adresse — l'app se comporte comme une
+  application native (iOS : menu Partager → *Sur l'écran d'accueil*) ;
+- **Hors-ligne** : l'app démarre et fonctionne sans réseau (service worker) ;
+- **Stockage persistant** : une app installée est nettement mieux protégée
+  des purges automatiques (Safari/ITP, navigateurs « éphémères ») qu'un
+  simple onglet. DuckDuckGo Android reste un cas à part : il efface tout à
+  la fermeture — le coffre reste indispensable.
 
 ## 🛠 Technique
 
-Un seul fichier [`index.html`](index.html) — HTML/CSS/JS vanilla, sans
-framework ni build. Hébergé gratuitement via **GitHub Pages**. Le coffre de
-sauvegarde et son encodeur QR (~250 lignes, réécrit d'après l'algorithme MIT
-de [Project Nayuki](https://www.nayuki.io/page/qr-code-generator-library))
-sont embarqués dans ce même fichier : toujours zéro dépendance réseau.
+Une page [`index.html`](index.html) — HTML/CSS/JS vanilla, sans framework ni
+build — plus deux petits fichiers PWA : [`manifest.json`](manifest.json)
+(nom, icônes, partage entrant) et [`sw.js`](sw.js) (hors-ligne, cache,
+réception du partage). Hébergé gratuitement via **GitHub Pages**. Le coffre
+de sauvegarde et son encodeur QR (~250 lignes, réécrit d'après l'algorithme
+MIT de [Project Nayuki](https://www.nayuki.io/page/qr-code-generator-library))
+sont embarqués dans la page : toujours zéro dépendance réseau. Les icônes
+PNG sont générées depuis `homeBiker.svg` par `node tools/make-icons.js`
+(Chrome headless, zéro dépendance). Tests : `npm test` (QR + codec) et
+`tests/smoke-gen.js` (page autonome vérifiée sous Chrome headless).
 
 ## 📄 Licence
 
