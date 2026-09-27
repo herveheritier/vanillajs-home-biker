@@ -109,11 +109,12 @@ jours… Le **coffre** est une sauvegarde complète — tous les profils et tous
 les carnets dans un seul fichier JSON — à conserver **hors du navigateur**.
 
 - **💾 Sauvegarder** propose, selon ce que le navigateur sait faire :
-  **⬇ Télécharger** un fichier daté `homebiker-sauvegarde-AAAA-MM-JJ-HHMM.json`,
-  **📤 Partager** (feuille de partage Android/iOS), **📋 Copier le coffre**
-  (texte compressé `HMBK2:…`, à coller dans des notes ou un e-mail privé) ou
-  **🔳 Afficher le QR** (transfert direct vers un autre appareil, carnet
-  jusqu'à ~25 séances ; au-delà, le fichier ou la copie prennent le relais).
+  **📤 Partager** (feuille de partage Android/iOS), **⬇ Télécharger** un
+  fichier daté `homebiker-sauvegarde-AAAA-MM-JJ-HHMM.json`, **📋 Copier le
+  coffre** (texte compressé `HMBK2:…`, à coller dans des notes ou un e-mail
+  privé) ou **🔳 Afficher le QR** (transfert direct vers un autre appareil,
+  carnet de 20 à 30 séances selon la compression ; au-delà, le fichier ou la
+  copie prennent le relais).
 - **♻ Restaurer** ouvre un coffre par **fichier**, **texte collé** ou **scan
   d'un QR** affiché sur l'autre appareil. Un aperçu présente chaque profil
   (existant, à créer, séances déjà présentes) puis vous choisissez
@@ -160,7 +161,7 @@ Excel/LibreOffice.
 
 Un seul fichier [`index.html`](index.html) — HTML/CSS/JS vanilla, sans
 framework ni build. Hébergé gratuitement via **GitHub Pages**. Le coffre de
-sauvegarde et son encodeur QR (~200 lignes, réécrit d'après l'algorithme MIT
+sauvegarde et son encodeur QR (~250 lignes, réécrit d'après l'algorithme MIT
 de [Project Nayuki](https://www.nayuki.io/page/qr-code-generator-library))
 sont embarqués dans ce même fichier : toujours zéro dépendance réseau.
 
