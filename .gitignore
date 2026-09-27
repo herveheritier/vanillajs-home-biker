@@ -1,0 +1,5 @@
+# Dépendances de développement (harnais de test uniquement — l'app n'a aucune dépendance)
+node_modules/
+
+# Artefact généré par tests/smoke-gen.js
+tests/smoke-standalone.html

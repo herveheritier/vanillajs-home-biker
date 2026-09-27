@@ -1,0 +1,19 @@
+{
+  "name": "homebiker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Carnet de séances de vélo d'appartement — 100 % local, un seul fichier HTML",
+  "scripts": {
+    "test": "node tests/coffre-test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/herveheritier/vanillajs-home-biker.git"
+  },
+  "homepage": "https://herveheritier.github.io/vanillajs-home-biker/",
+  "license": "MIT",
+  "type": "commonjs",
+  "devDependencies": {
+    "jsqr": "^1.4.0"
+  }
+}

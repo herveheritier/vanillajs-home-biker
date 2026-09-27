@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="light dark">
-  <title>Carnet de séances — HomeBiker</title>
+  <meta name="color-scheme" content="light dark">    <title>HomeBiker — Carnet de séances de vélo d'appartement</title>
+    <meta name="description" content="Carnet de séances de vélo d'appartement — 100 % local, avec coffre de sauvegarde hors navigateur (fichier, partage, copie, QR code).">
   <link rel="icon" type="image/svg+xml" href="homeBiker.svg">
   <style>
     :root {
@@ -274,6 +274,61 @@
     #chart-wrap .vgrid { stroke: var(--border); stroke-width: 1; stroke-dasharray: 2 4; }
     #chart-wrap .hlab { fill: var(--muted); font-size: 10px; font-family: inherit; }
 
+    /* ---- Bandeau « sauvegarde à faire » ---- */
+    .save-band {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      background: color-mix(in srgb, var(--warn) 12%, var(--card));
+      border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--border));
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 10px 14px; margin-bottom: 20px;
+      font-size: .92rem;
+    }
+    .save-band .save-msg { color: var(--text); min-width: 0; }
+    .save-band .btn-ghost { color: var(--danger); }
+    .save-band .btn-ghost:hover { color: var(--danger); }
+    .save-band[hidden] { display: none; }
+
+    /* ---- Modale Restaurer / QR ---- */
+    .tabs { display: flex; gap: 4px; margin-bottom: 14px; flex-wrap: wrap; }
+    .tab {
+      font: inherit; font-size: .85rem; font-weight: 550;
+      background: transparent; color: var(--muted);
+      border: 1px solid var(--border); border-radius: 999px;
+      padding: 6px 12px; cursor: pointer;
+    }
+    .tab:hover { background: var(--accent-soft); }
+    .tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .tabpanes > div[hidden] { display: none; }
+    .restore-zone {
+      border: 1px dashed var(--border); border-radius: 10px;
+      padding: 14px; color: var(--muted); text-align: center; font-size: .92rem;
+      margin: 10px 0;
+    }
+    .modal-input.ta {
+      width: 100%; min-height: 110px; resize: vertical;
+      padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px;
+      background: var(--bg); color: var(--text); font: inherit; font-size: .88rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      word-break: break-all;
+    }
+    .modal-input.ta:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+    .coffre-qr { display: flex; justify-content: center; padding: 8px 0 2px; }
+    .coffre-qr svg { width: min(78vw, 320px); height: auto; display: block; border: 6px solid var(--card); border-radius: 8px; }
+    .qr-cap { font-size: .85rem; color: var(--muted); text-align: center; margin-top: 8px; }
+    #qr-stage { position: relative; display: flex; justify-content: center; }
+    #qr-video { display: none; max-width: 100%; width: min(78vw, 320px); border-radius: 10px; border: 1px solid var(--border); background: #000; }
+    #qr-video.live { display: block; }
+    #qr-canvas { display: none; }
+    .qr-frame {
+      position: absolute; inset: 0; margin: auto;
+      width: 78%; height: 62%; pointer-events: none;
+      border: 2px solid var(--accent); border-radius: 12px;
+      box-shadow: 0 0 0 9999px rgba(10, 14, 24, .35);
+      display: none;
+    }
+    .qr-frame.live { display: block; }
+
     /* ---- Modale ---- */
     .modal-overlay {
       position: fixed; inset: 0; z-index: 50;
@@ -377,6 +432,13 @@
     <section class="stats" id="stats"></section>
     <section class="stats" id="stats-all" style="display:none"></section>
 
+    <div class="save-band" id="save-band" hidden>
+      <span class="save-msg" id="save-band-msg">💾 Sauvegarde à faire</span>
+      <span style="flex:1"></span>
+      <button type="button" class="btn-ghost" id="save-band-dismiss" title="Masquer jusqu'à la prochaine modification (les données restent enregistrées dans le navigateur)">✕</button>
+      <button type="button" class="btn-primary" id="save-band-go">💾 Sauvegarder</button>
+    </div>
+
     <section class="card" id="form-card">
       <form id="form">
         <div class="field">
@@ -442,11 +504,14 @@
           <div class="editing-note" id="editing-note">✎ Correction d'une ligne — <kbd>Entrée</kbd> valide, <kbd>Échap</kbd> annule. La distance se recalcule si vous changez le compteur de fin.</div>
     </div>
         <div class="card-actions">
+          <button type="button" class="btn-ghost" id="restore">♻ Restaurer</button>
           <button type="button" class="btn-ghost" id="import">⬆ Importer un CSV</button>
           <button type="button" class="btn-ghost" id="export">⬇ Exporter en CSV</button>
+          <button type="button" class="btn-ghost" id="save" title="Coffre : tous les profils et carnets dans un fichier hors navigateur">💾 Sauvegarder</button>
           <button type="button" class="btn-ghost" id="clear">Tout effacer</button>
         </div>
         <input type="file" id="file-input" accept=".csv,text/csv" hidden>
+        <input type="file" id="file-input-json" accept=".json,application/json" hidden>
       </div>
       <div class="table-wrap">
         <table>
@@ -512,6 +577,49 @@
 
   <div id="toast" role="status"></div>
 
+  <div class="modal-overlay" id="restore-overlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="restore-title">
+      <div class="modal-icon" id="restore-icon">♻</div>
+      <h3 class="modal-title" id="restore-title">Restaurer un coffre</h3>
+      <div class="modal-body" id="restore-body">
+        <div class="tabs" role="tablist">
+          <button type="button" class="tab active" id="tab-file" role="tab" aria-selected="true">📁 Fichier</button>
+          <button type="button" class="tab" id="tab-paste" role="tab" aria-selected="false">📋 Coller un coffre</button>
+          <button type="button" class="tab" id="tab-scan" role="tab" aria-selected="false" hidden>🔳 Scanner un QR</button>
+        </div>
+        <div class="tabpanes">
+          <div id="pane-file">
+            <p>Choisissez un fichier de sauvegarde HomeBiker (<code>.json</code>). Le sélecteur s'ouvre sur <strong>Téléchargements</strong> → fichier le plus récent.</p>
+            <div class="restore-zone" id="restore-drop">
+              Glissez le fichier ici<br>ou
+              <button type="button" class="btn-modal-secondary" id="restore-pick">Choisir un fichier…</button>
+            </div>
+            <div id="restore-file-name" style="font-size:.85rem;color:var(--muted);word-break:break-all;"></div>
+          </div>
+          <div id="pane-paste" hidden>
+            <p>Collez un coffre copié depuis un autre appareil (texte <code>HMBK2:…</code> ou JSON brut).</p>
+            <textarea id="restore-paste" class="modal-input ta" placeholder="HMBK2:…"></textarea>
+          </div>
+          <div id="pane-scan" hidden>
+            <p>Présentez le QR code affiché sur l'autre appareil devant la caméra.</p>
+            <div id="qr-stage">
+              <video id="qr-video" playsinline muted></video>
+              <div class="qr-frame" id="qr-frame"></div>
+            </div>
+            <canvas id="qr-canvas"></canvas>
+            <div id="scan-status" style="font-size:.85rem;color:var(--muted);margin-top:6px;">Caméra arrêtée.</div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-actions" id="restore-actions">
+        <button type="button" class="btn-modal-secondary" id="restore-cancel">Fermer</button>
+        <button type="button" class="btn-primary" id="restore-next">Analyser</button>
+        <button type="button" class="btn-primary" id="restore-scan-start" hidden>📷 Démarrer la caméra</button>
+        <button type="button" class="btn-danger" id="restore-scan-stop" hidden>⏹ Arrêter</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="modal-overlay" hidden>
     <div class="modal" id="modal" role="alertdialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-body">
       <div class="modal-icon" id="modal-icon">⚠️</div>
@@ -528,6 +636,12 @@
     const LEGACY_KEY = 'carnet-trajets-v1';
     const tripKey = (id) => `carnet-trajets-u-${id}`;
     const loadJSON = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); return v ?? d; } catch { return d; } };
+
+    // État du « coffre de secours » (déclaré tôt : save()/saveUsers() y font appel)
+    const COFFRE_PREFIX = 'HMBK2:';
+    const COFFRE_COUNTER_KEY = 'carnet-trajets-coffre-counter';
+    let coffreNonSauvegarde = parseInt(localStorage.getItem(COFFRE_COUNTER_KEY) || '0', 10) || 0;
+    let majAutoActivee = false; // la restauration ne déclenche pas le bandeau
 
     let users = loadJSON(USERS_KEY, []);
     let userId = localStorage.getItem(CURRENT_KEY);
@@ -577,7 +691,12 @@
       return `<span class="badge ${cls}">${f}</span>`;
     };
 
-    const save = () => localStorage.setItem(tripKey(userId), JSON.stringify(trajets));
+    const save = () => { localStorage.setItem(tripKey(userId), JSON.stringify(trajets)); notifierModification(); };
+    // Références remontées pour le module « coffre » : render et renderUserBar sont
+    // définies plus bas (restauration et fusion ont besoin de rafraîchir la vue
+    // immédiatement, avant leur définition dans l'ordre du fichier).
+    function render() { renderVue(); }
+    function renderUserBar() { renderBarreUtilisateur(); }
 
     let toastTimer;
     const showToast = (msg) => {
@@ -590,6 +709,751 @@
         delete toast.dataset.forced;
       }, 2200);
     };
+
+    /* ================= Coffre de secours (persistance hors navigateur) ================= */
+
+    // (l'état du coffre est déclaré en tête de script)
+
+    const escapeHTML = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const RESTORE_BODY_HTML = $('#restore-body').innerHTML; // les modales du coffre remplacent ce contenu ; on le restaure à chaque ouverture
+    const RESTORE_ACTIONS_HTML = $('#restore-actions').innerHTML;
+
+    // ---- Encodeur QR embarqué (réécrit d'après QR Code generator, MIT License, © Project Nayuki)
+    // Modèle 2, versions 1 à 40, mode byte, ECC M. Zéro dépendance réseau.
+    const QR_ECC_CODEWORDS_PER_BLOCK = [-1, 10, 16, 26, 18, 24, 16, 18, 22, 22, 26, 30, 22, 22, 24, 24, 28, 28, 26, 26, 26, 26, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28];
+    const QR_NUM_ERROR_CORRECTION_BLOCKS = [-1, 1, 1, 1, 2, 2, 4, 4, 4, 5, 5, 5, 8, 9, 9, 10, 10, 11, 13, 14, 16, 17, 17, 18, 20, 21, 23, 25, 26, 28, 29, 31, 33, 35, 37, 38, 40, 43, 45, 47, 49];
+    const qrGetNumRawDataModules = (ver) => {
+      let result = (16 * ver + 128) * ver + 64;
+      if (ver >= 2) {
+        const numAlign = Math.floor(ver / 7) + 2;
+        result -= (25 * numAlign - 10) * numAlign - 55;
+        if (ver >= 7) result -= 36;
+      }
+      return result;
+    };
+    const qrGetNumDataCodewords = (ver) => Math.floor(qrGetNumRawDataModules(ver) / 8) - QR_ECC_CODEWORDS_PER_BLOCK[ver] * QR_NUM_ERROR_CORRECTION_BLOCKS[ver];
+    const qrRsMul = (x, y) => {
+      let z = 0;
+      for (let i = 7; i >= 0; i--) {
+        z = (z << 1) ^ ((z >>> 7) * 0x11D);
+        z ^= ((y >>> i) & 1) * x;
+      }
+      return z & 0xFF;
+    };
+    const qrRsRemainder = (data, degree) => {
+      const divisor = [];
+      for (let i = 0; i < degree - 1; i++) divisor.push(0);
+      divisor.push(1);
+      let root = 1;
+      for (let i = 0; i < degree; i++) {
+        for (let j = 0; j < divisor.length; j++) {
+          divisor[j] = qrRsMul(divisor[j], root);
+          if (j + 1 < divisor.length) divisor[j] ^= divisor[j + 1];
+        }
+        root = qrRsMul(root, 0x02);
+      }
+      const result = divisor.map(() => 0);
+      for (const b of data) {
+        const factor = b ^ result.shift();
+        result.push(0);
+        divisor.forEach((coef, i) => { result[i] ^= qrRsMul(coef, factor); });
+      }
+      return result;
+    };
+    const qrMake = (data) => {
+      // Choisit la plus petite version 1..40 en ECC M dont la capacité accueille data (mode byte).
+      let version = -1;
+      for (let v = 1; v <= 40; v++) {
+        if (data.length + 2 <= qrGetNumDataCodewords(v)) { version = v; break; }
+      }
+      if (version === -1) throw new Error('QR too long');
+      // Construction du flux de bits : en-tête mode byte + longueur + données + terminaison + remplissage
+      const capBits = qrGetNumDataCodewords(version) * 8;
+      const bb = [];
+      const appendBits = (val, len) => { for (let i = len - 1; i >= 0; i--) bb.push((val >>> i) & 1); };
+      appendBits(4, 4); // mode byte
+      appendBits(data.length, version <= 9 ? 8 : 16);
+      for (const b of data) appendBits(b, 8);
+      appendBits(0, Math.min(4, capBits - bb.length));
+      appendBits(0, (8 - bb.length % 8) % 8);
+      for (let pad = 0xEC; bb.length < capBits; pad ^= 0xEC ^ 0x11) appendBits(pad, 8);
+      const dataCw = [];
+      for (let i = 0; i < bb.length / 8; i++) dataCw.push(0);
+      bb.forEach((b, i) => { dataCw[i >>> 3] |= b << (7 - (i & 7)); });
+      // Correction d'erreur + entrelacement
+      const numBlocks = QR_NUM_ERROR_CORRECTION_BLOCKS[version];
+      const blockEccLen = QR_ECC_CODEWORDS_PER_BLOCK[version];
+      const rawCw = Math.floor(qrGetNumRawDataModules(version) / 8);
+      const numShortBlocks = numBlocks - rawCw % numBlocks;
+      const shortBlockLen = Math.floor(rawCw / numBlocks);
+      const blocks = [];
+      for (let i = 0, k = 0; i < numBlocks; i++) {
+        const dat = dataCw.slice(k, k + shortBlockLen - blockEccLen + (i < numShortBlocks ? 0 : 1));
+        k += dat.length;
+        const ecc = qrRsRemainder(dat, blockEccLen);
+        if (i < numShortBlocks) dat.push(0);
+        blocks.push(dat.concat(ecc));
+      }
+      const result = [];
+      for (let i = 0; i < blocks[0].length; i++) {
+        blocks.forEach((block, j) => { if (i != shortBlockLen - blockEccLen || j >= numShortBlocks) result.push(block[i]); });
+      }
+      // Grille de modules (false = clair, true = sombre)
+      const size = version * 4 + 17;
+      const modules = [];
+      const isFunction = [];
+      for (let y = 0; y < size; y++) { modules.push(new Array(size).fill(false)); isFunction.push(new Array(size).fill(false)); }
+      const setFn = (x, y, dark) => { modules[y][x] = dark; isFunction[y][x] = true; };
+      for (let i = 0; i < size; i++) { setFn(6, i, i % 2 == 0); setFn(i, 6, i % 2 == 0); }
+      const drawFinder = (cx, cy) => {
+        for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) {
+          const xx = cx + dx, yy = cy + dy, dist = Math.max(Math.abs(dx), Math.abs(dy));
+          if (0 <= xx && xx < size && 0 <= yy && yy < size) setFn(xx, yy, dist != 2 && dist != 4);
+        }
+      };
+      drawFinder(3, 3); drawFinder(size - 4, 3); drawFinder(3, size - 4);
+      const alignPos = [];
+      if (version > 1) {
+        const numAlign = Math.floor(version / 7) + 2;
+        const step = Math.floor((version * 8 + numAlign * 3 + 5) / (numAlign * 4 - 4)) * 2;
+        alignPos.push(6);
+        for (let pos = size - 7; alignPos.length < numAlign; pos -= step) alignPos.splice(1, 0, pos);
+      }
+      for (let i = 0; i < alignPos.length; i++) {
+        for (let j = 0; j < alignPos.length; j++) {
+          if (i == 0 && j == 0 || i == 0 && j == alignPos.length - 1 || i == alignPos.length - 1 && j == 0) continue;
+          const cx = alignPos[i], cy = alignPos[j];
+          for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) setFn(cx + dx, cy + dy, Math.max(Math.abs(dx), Math.abs(dy)) != 1);
+        }
+      }
+      const drawFormat = (mask) => {
+        const eccBits = 0; // MEDIUM : formatBits = 0 (L=01, M=00, Q=11, H=10) ; data = formatBits << 3 | mask
+        const d = eccBits << 3 | mask;
+        let rem = d;
+        for (let i = 0; i < 10; i++) rem = (rem << 1) ^ ((rem >>> 9) * 0x537);
+        const bits = (d << 10 | rem) ^ 0x5412;
+        for (let i = 0; i <= 5; i++) setFn(8, i, ((bits >>> i) & 1) != 0);
+        setFn(8, 7, ((bits >>> 6) & 1) != 0);
+        setFn(8, 8, ((bits >>> 7) & 1) != 0);
+        setFn(7, 8, ((bits >>> 8) & 1) != 0);
+        for (let i = 9; i < 15; i++) setFn(14 - i, 8, ((bits >>> i) & 1) != 0);
+        for (let i = 0; i < 8; i++) setFn(size - 1 - i, 8, ((bits >>> i) & 1) != 0);
+        for (let i = 8; i < 15; i++) setFn(8, size - 15 + i, ((bits >>> i) & 1) != 0);
+        setFn(8, size - 8, true);
+      };
+      const drawVersionInfo = () => {
+        if (version < 7) return;
+        let rem = version;
+        for (let i = 0; i < 12; i++) rem = (rem << 1) ^ ((rem >>> 11) * 0x1F25);
+        const bits = version << 12 | rem;
+        for (let i = 0; i < 18; i++) {
+          const color = ((bits >>> i) & 1) != 0;
+          const a = size - 11 + i % 3, b = Math.floor(i / 3);
+          setFn(a, b, color); setFn(b, a, color);
+        }
+      };
+      drawFormat(0); drawVersionInfo();
+      let i = 0;
+      for (let right = size - 1; right >= 1; right -= 2) {
+        if (right == 6) right = 5;
+        for (let vert = 0; vert < size; vert++) {
+          for (let j = 0; j < 2; j++) {
+            const x = right - j;
+            const upward = ((right + 1) & 2) == 0;
+            const y = upward ? size - 1 - vert : vert;
+            if (!isFunction[y][x] && i < result.length * 8) {
+              modules[y][x] = ((result[i >>> 3] >>> (7 - (i & 7))) & 1) != 0;
+              i++;
+            }
+          }
+        }
+      }
+      // Choix automatique du masque (pénalité Nayuki)
+      const N1 = 3, N2 = 3, N3 = 40, N4 = 10;
+      const applyMask = (mask) => {
+        for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+          let invert;
+          switch (mask) {
+            case 0: invert = (x + y) % 2 == 0; break;
+            case 1: invert = y % 2 == 0; break;
+            case 2: invert = x % 3 == 0; break;
+            case 3: invert = (x + y) % 3 == 0; break;
+            case 4: invert = (Math.floor(x / 3) + Math.floor(y / 2)) % 2 == 0; break;
+            case 5: invert = x * y % 2 + x * y % 3 == 0; break;
+            case 6: invert = (x * y % 2 + x * y % 3) % 2 == 0; break;
+            default: invert = ((x + y) % 2 + x * y % 3) % 2 == 0; break;
+          }
+          if (!isFunction[y][x] && invert) modules[y][x] = !modules[y][x];
+        }
+      };
+      const runCounts = (runHistory) => {
+        const n = runHistory[1];
+        const core = n > 0 && runHistory[2] == n && runHistory[3] == n * 3 && runHistory[4] == n && runHistory[5] == n;
+        return (core && runHistory[0] >= n * 4 && runHistory[6] >= n ? 1 : 0)
+          + (core && runHistory[6] >= n * 4 && runHistory[0] >= n ? 1 : 0);
+      };
+      const finderPenalty = (currentRunColor, currentRunLength, runHistory) => {
+        let currentRun = currentRunLength;
+        if (currentRunColor) { runHistory.unshift(currentRun); runHistory.pop(); currentRun = 0; }
+        if (runHistory[0] == 0) currentRun += size;
+        currentRun += size;
+        runHistory.unshift(currentRun); runHistory.pop();
+        return runCounts(runHistory);
+      };
+      let best = -1, minPenalty = 0;
+      for (let m = 0; m < 8; m++) {
+        applyMask(m);
+        drawFormat(m);
+        let penalty = 0;
+        for (let y = 0; y < size; y++) {
+          let runColor = false, runX = 0;
+          const rh = [0, 0, 0, 0, 0, 0, 0];
+          for (let x = 0; x < size; x++) {
+            if (modules[y][x] == runColor) {
+              runX++;
+              if (runX == 5) penalty += N1; else if (runX > 5) penalty++;
+            } else {
+              penalty += finderPenalty(runColor, runX, rh) * N3;
+              runColor = modules[y][x]; runX = 1;
+            }
+          }
+          penalty += finderPenalty(runColor, runX, rh) * N3;
+        }
+        for (let x = 0; x < size; x++) {
+          let runColor = false, runY = 0;
+          const rh = [0, 0, 0, 0, 0, 0, 0];
+          for (let y = 0; y < size; y++) {
+            if (modules[y][x] == runColor) {
+              runY++;
+              if (runY == 5) penalty += N1; else if (runY > 5) penalty++;
+            } else {
+              penalty += finderPenalty(runColor, runY, rh) * N3;
+              runColor = modules[y][x]; runY = 1;
+            }
+          }
+          penalty += finderPenalty(runColor, runY, rh) * N3;
+        }
+        for (let y = 0; y < size - 1; y++) for (let x = 0; x < size - 1; x++) {
+          const color = modules[y][x];
+          if (color == modules[y][x + 1] && color == modules[y + 1][x] && color == modules[y + 1][x + 1]) penalty += N2;
+        }
+        let dark = 0;
+        for (const row of modules) for (const c of row) if (c) dark++;
+        const total = size * size;
+        const k = Math.ceil(Math.abs(dark * 20 - total * 10) / total) - 1;
+        penalty += k * N4;
+        if (best == -1 || penalty < minPenalty) { best = m; minPenalty = penalty; }
+        applyMask(m);
+      }
+      applyMask(best);
+      drawFormat(best);
+      return { size, modules };
+    };
+    const qrToSVG = (qr) => {
+      const parts = [];
+      for (let y = 0; y < qr.size; y++) for (let x = 0; x < qr.size; x++) {
+        if (qr.modules[y][x]) parts.push(`M${x} ${y}h1v1h-1z`);
+      }
+      return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${qr.size} ${qr.size}" role="img" aria-label="QR code du coffre de sauvegarde HomeBiker"><rect width="100%" height="100%" fill="var(--card)"/><path d="${parts.join(' ')}" stroke="none" fill="var(--text)"/></svg>`;
+    };
+
+    // ---- Codec « HMBK2: » (texte compressé du coffre)
+    const b64urlEncode = (bytes) => {
+      let bin = '';
+      for (const b of bytes) bin += String.fromCharCode(b);
+      return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    };
+    const b64urlDecode = (str) => {
+      let s = str.replace(/-/g, '+').replace(/_/g, '/');
+      while (s.length % 4) s += '=';
+      const bin = atob(s);
+      const out = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+      return out;
+    };
+    const encodeCoffreText = async (obj) => {
+      let payload = new TextEncoder().encode(JSON.stringify(obj));
+      let compressed = false;
+      if (typeof CompressionStream === 'function') {
+        try {
+          const cs = new CompressionStream('deflate-raw');
+          const blob = await new Response(new Blob([payload]).stream().pipeThrough(cs)).blob();
+          const out = new Uint8Array(await blob.arrayBuffer());
+          if (out.length && out.length < payload.length) { payload = out; compressed = true; }
+        } catch (e) { /* repli : JSON brut (§10) */ }
+      }
+      return COFFRE_PREFIX + (compressed ? 'Z' : 'R') + b64urlEncode(payload);
+    };
+    const decodeCoffreText = async (text) => {
+      const t = text.trim();
+      if (t.startsWith(COFFRE_PREFIX)) {
+        const body = t.slice(COFFRE_PREFIX.length).trim();
+        const mode = body[0];
+        if (mode !== 'Z' && mode !== 'R') throw new Error('format');
+        let bytes = b64urlDecode(body.slice(1));
+        if (mode === 'Z') {
+          if (typeof DecompressionStream !== 'function') throw new Error('format');
+          const ds = new DecompressionStream('deflate-raw');
+          const blob = await new Response(new Blob([bytes]).stream().pipeThrough(ds)).blob();
+          bytes = new Uint8Array(await blob.arrayBuffer());
+        }
+        return JSON.parse(new TextDecoder().decode(bytes));
+      }
+      return JSON.parse(t); // JSON brut
+    };
+
+    // ---- Construction du coffre (format 2) et nommage du fichier
+    const horodatage = () => { const d = new Date(), p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; };
+    const nomFichierCoffre = () => { const d = new Date(), p = (n) => String(n).padStart(2, '0'); return `homebiker-sauvegarde-${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}.json`; };
+    const buildCoffre = () => {
+      const stamp = horodatage();
+      const profils = users.map((u) => {
+        const seances = (u.id === userId ? trajets : loadJSON(tripKey(u.id), [])).map((t) => ({ ...t, maj: t.maj || stamp }));
+        return { id: u.id, nom: u.name, seances };
+      });
+      return {
+        app: 'homebiker', format: 2, exporte: new Date().toISOString(),
+        appareil: { ua: navigator.userAgent.slice(0, 100) },
+        profils,
+        prefs: { couches: { dist: localStorage.getItem(LAYER_KEYS.dist), vit: localStorage.getItem(LAYER_KEYS.vit), slot: localStorage.getItem(LAYER_KEYS.slot) } },
+      };
+    };
+    const compteTotalSeances = (coffre) => coffre.profils.reduce((s, p) => s + p.seances.length, 0);
+
+    // ---- Sorties
+    const marquerSauvegardeFait = () => {
+      coffreNonSauvegarde = 0;
+      localStorage.setItem(COFFRE_COUNTER_KEY, '0');
+      majBandeau();
+    };
+    function notifierModification() {
+      if (majAutoActivee) return;
+      coffreNonSauvegarde++;
+      localStorage.setItem(COFFRE_COUNTER_KEY, String(coffreNonSauvegarde));
+      majBandeau();
+    }
+    const telechargerCoffre = (obj) => {
+      const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = nomFichierCoffre();
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    };
+    const sortirCoffre = async (modePartage) => {
+      const coffre = buildCoffre();
+      const compteurAvant = coffreNonSauvegarde;
+      marquerSauvegardeFait();
+      const json = JSON.stringify(coffre, null, 2);
+      if (modePartage && navigator.canShare && navigator.canShare({ files: [new File([json], nomFichierCoffre(), { type: 'application/json' })] })) {
+        try {
+          await navigator.share({ files: [new File([json], nomFichierCoffre(), { type: 'application/json' })], title: 'Sauvegarde HomeBiker' });
+          showToast('✓ Coffre partagé'); return;
+        } catch (e) {
+          if (e && e.name === 'AbortError') {
+            // Partage annulé : aucune sauvegarde n'est sortie, le bandeau revient (§12.5)
+            coffreNonSauvegarde = compteurAvant;
+            localStorage.setItem(COFFRE_COUNTER_KEY, String(coffreNonSauvegarde));
+            majBandeau();
+            showToast('Partage annulé'); return;
+          }
+          // sinon : repli téléchargement
+        }
+      }
+      telechargerCoffre(coffre);
+      showToast('✓ Coffre téléchargé');
+    };
+    $('#save-band-go').addEventListener('click', () => sortirCoffre(false));
+
+    // ---- Modales du coffre
+    function showCoffreModal({ icon, title, bodyHTML, actions, onOpen }) {
+      return new Promise((resolve) => {
+        const overlay = $('#restore-overlay');
+        const modal = overlay.querySelector('.modal');
+        $('#restore-icon').textContent = icon;
+        modal.classList.toggle('danger', false);
+        $('#restore-title').textContent = title;
+        $('#restore-body').innerHTML = bodyHTML;
+        const box = $('#restore-actions');
+        box.innerHTML = '';
+        for (const a of actions) {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.textContent = a.label;
+          b.className = a.variant === 'primary' ? 'btn-primary' : a.variant === 'danger' ? 'btn-danger' : 'btn-modal-secondary';
+          b.onclick = () => done(a.value);
+          box.appendChild(b);
+        }
+        overlay.hidden = false;
+        requestAnimationFrame(() => overlay.classList.add('open'));
+        const onKey = (e) => {
+          if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); const c = actions.find((a) => a.esc); if (c) done(c.value); }
+          if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); const d = actions.find((a) => a.enter); if (d) done(d.value); }
+        };
+        function done(value) {
+          document.removeEventListener('keydown', onKey, true);
+          overlay.classList.remove('open');
+          setTimeout(() => { overlay.hidden = true; }, 200);
+          resolve(value);
+        }
+        overlay.onclick = (e) => { if (e.target === overlay) { const c = actions.find((a) => a.esc); if (c) done(c.value); } };
+        document.addEventListener('keydown', onKey, true);
+        if (onOpen) onOpen($('#restore-body'), done);
+        else box.querySelector('.btn-primary')?.focus();
+      });
+    }
+
+    // ---- Aperçu + application (fusion ou remplacement)
+    const appliquerCoffre = async (coffre, voie) => {
+      if (!coffre || coffre.app !== 'homebiker' || coffre.format !== 2 || !Array.isArray(coffre.profils)) {
+        await showCoffreModal({
+          icon: '⚠️', title: 'Fichier non reconnu',
+          bodyHTML: '<p>Ce fichier n\'est pas un coffre de sauvegarde HomeBiker (format 2). Aucune donnée n\'a été modifiée.</p>',
+          actions: [{ label: 'Fermer', variant: 'primary', esc: true, enter: true }],
+        });
+        return;
+      }
+      const appareilVide = !users.some((u) => (u.id === userId ? trajets : loadJSON(tripKey(u.id), [])).length) && users.length === 1;
+      const fusionDefaut = !appareilVide;
+      // Aperçu par profil : statut local (existant / à créer), séances déjà présentes ;
+      // avertissements §13 : horodatages futurs (horloge faussée), profils ambigus (même nom, ids différents).
+      const maintenant = Date.now();
+      let horodatageFutur = false, profilsAmbigus = false;
+      const cleT = (t) => [t.date, t.de, t.a, t.depart, t.arrivee].join('|');
+      const nomsVus = new Set();
+      const resume = coffre.profils.map((p) => {
+        if (!p || !Array.isArray(p.seances)) return '';
+        const nomN = norm(p.nom || '');
+        if (nomN && nomsVus.has(nomN)) profilsAmbigus = true;
+        if (nomN) nomsVus.add(nomN);
+        const parId = users.find((x) => x.id === p.id);
+        const parNom = users.find((x) => norm(x.name) === nomN);
+        if (!parId && parNom) profilsAmbigus = true;
+        for (const t of p.seances) if (t.maj && new Date(t.maj).getTime() > maintenant + 5 * 60 * 1000) horodatageFutur = true;
+        const uLocal = parId || parNom;
+        let dejaLa = 0;
+        if (uLocal) {
+          const locauxRef = uLocal.id === userId ? trajets : loadJSON(tripKey(uLocal.id), []);
+          const ens = new Set((Array.isArray(locauxRef) ? locauxRef : []).map(cleT));
+          dejaLa = p.seances.filter((t) => ens.has(cleT(t))).length;
+        }
+        return `<li><strong>${escapeHTML(p.nom || 'Profil')}</strong> — ${p.seances.length} séance(s), profil ${uLocal ? 'existant' : 'à créer'}${dejaLa ? `, ${dejaLa} déjà présente(s)` : ''}</li>`;
+      }).join('');
+      const avertis = (profilsAmbigus || horodatageFutur)
+        ? `<p>${profilsAmbigus ? '⚠ Deux profils partagent le même nom avec des identifiants différents : la fusion se fera par nom, vérifiez qu\'il s\'agit du même carnet. ' : ''}${horodatageFutur ? '⚠ Certaines séances portent une date de modification dans le futur (horloge d\'un appareil faussée ?) : elles seront jugées plus récentes en cas de conflit.' : ''}</p>`
+        : '';
+      const choix = await showCoffreModal({
+        icon: '♻', title: 'Restaurer ce coffre ?',
+        bodyHTML: `<p>Sauvegarde du <strong>${new Date(coffre.exporte).toLocaleString('fr-FR')}</strong> — ${compteTotalSeances(coffre)} séance(s), ${coffre.profils.length} profil(s) :</p><ul class="modal-recap">${resume}</ul>${avertis}${appareilVide ? '<p>Appareil vide : le coffre sera appliqué tel quel.</p>' : '<p>Vous pourrez choisir <strong>fusionner</strong> (recommandé, anti-doublons) ou <strong>remplacer</strong> le contenu des profils concernés.</p>'}`,
+        actions: [
+          { label: 'Restaurer', variant: 'primary', value: true, enter: true },
+          { label: 'Annuler', esc: true, value: false },
+        ],
+      });
+      if (!choix) { showToast('Restauration annulée'); return; }
+      let mode = 'remplacer';
+      if (fusionDefaut) {
+        mode = await showCoffreModal({
+          icon: '♻', title: 'Fusionner ou remplacer ?',
+          bodyHTML: '<p><strong>Fusionner</strong> ajoute les séances du coffre à vos carnets actuels (les doublons sont ignorés, les corrections les plus récentes gagnent).<br><strong>Remplacer</strong> écrase le carnet de chaque profil présent dans le coffre.</p>',
+          actions: [
+            { label: 'Fusionner', variant: 'primary', value: 'fusion', enter: true },
+            { label: 'Remplacer', value: 'remplacer' },
+            { label: 'Annuler', esc: true, value: null },
+          ],
+        });
+        if (mode === null) { showToast('Restauration annulée'); return; }
+      }
+      majAutoActivee = true;
+      let cree = 0, ajoutees = 0, misesAJour = 0, doublons = 0, erreur = null;
+      try {
+        for (const p of coffre.profils) {
+          if (!p || !Array.isArray(p.seances)) continue;
+          let u = users.find((x) => x.id === p.id) || users.find((x) => norm(x.name) === norm(p.nom || ''));
+          if (!u) {
+            u = { id: p.id || ('u' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5)), name: p.nom || 'Profil' };
+            users.push(u); cree++;
+          }
+          const locaux = (u.id === userId ? trajets : loadJSON(tripKey(u.id), [])).slice();
+          if (mode === 'remplacer') {
+            if (u.id === userId) trajets = p.seances.slice(); else localStorage.setItem(tripKey(u.id), JSON.stringify(p.seances));
+            continue;
+          }
+          // Fusion : clé d'identité (date, début, fin, compteurs), la version au maj le plus récent gagne
+          const parCle = new Map(locaux.map((t) => [cleT(t), t]));
+          for (const t of p.seances) {
+            const local = parCle.get(cleT(t));
+            if (!local) { parCle.set(cleT(t), t); ajoutees++; }
+            else {
+              const majLocal = local.maj || '', majCoffre = t.maj || '';
+              if (majCoffre && majCoffre > majLocal) { parCle.set(cleT(t), t); misesAJour++; }
+              else doublons++;
+            }
+          }
+          const fusionnes = [...parCle.values()].sort((x, y) => (x.date + x.de).localeCompare(y.date + y.de));
+          if (u.id === userId) trajets = fusionnes; else localStorage.setItem(tripKey(u.id), JSON.stringify(fusionnes));
+        }
+      } catch (e) {
+        erreur = e;
+      } finally {
+        if (coffre.prefs && coffre.prefs.couches) {
+          for (const k of ['dist', 'vit', 'slot']) {
+            const v = coffre.prefs.couches[k];
+            if (v === '0' || v === '1') localStorage.setItem(LAYER_KEYS[k], v);
+          }
+          majFiltres();
+        }
+        // Appareil vide : le premier profil du coffre devient le profil actif (§6),
+        // sinon l'utilisateur verrait un carnet vide après la restauration.
+        if (appareilVide && !erreur) {
+          const premier = coffre.profils.find((p) => p && Array.isArray(p.seances));
+          const cible = premier && users.find((x) => x.id === premier.id || x.name === premier.nom);
+          if (cible && cible.id !== userId) {
+            userId = cible.id;
+            trajets = loadJSON(tripKey(userId), []);
+            if (!Array.isArray(trajets)) trajets = [];
+          }
+        }
+        saveUsers();
+        renderUserBar();
+        render();
+        marquerSauvegardeFait();
+        majAutoActivee = false;
+      }
+      if (erreur) { showToast('⚠ Restauration interrompue — état partiel, refaites une sauvegarde'); return; }
+      if (appareilVide) showToast(`✓ Carnet restauré (${compteTotalSeances(coffre)} séances, ${coffre.profils.length} profils)`);
+      else showToast(`✓ ${ajoutees} ajoutée(s) · ${misesAJour} mise(s) à jour · ${doublons} doublon(s) ignoré(s)${cree ? ` · ${cree} profil(s) créé(s)` : ''}`);
+    };
+
+    // ---- Scan QR (BarcodeDetector)
+    let scanStream = null, scanTimer = null;
+    const stopScan = () => {
+      if (scanTimer) { clearInterval(scanTimer); scanTimer = null; }
+      if (scanStream) { scanStream.getTracks().forEach((t) => t.stop()); scanStream = null; }
+      $('#qr-video').classList.remove('live');
+      $('#qr-frame').classList.remove('live');
+      $('#scan-status').textContent = 'Caméra arrêtée.';
+    };
+    $('#restore-scan-stop').addEventListener('click', stopScan);
+    const demarrerScan = async () => {
+      if (!('BarcodeDetector' in window)) { showToast('Scanner QR non disponible sur ce navigateur'); return; }
+      try {
+        scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      } catch (e) {
+        $('#scan-status').textContent = 'Accès caméra refusé ou indisponible.';
+        showToast('⚠ Accès caméra refusé — utilisez Fichier ou Coller');
+        return;
+      }
+      const video = $('#qr-video');
+      video.srcObject = scanStream;
+      await video.play();
+      video.classList.add('live');
+      $('#qr-frame').classList.add('live');
+      $('#scan-status').textContent = 'Recherche d\'un QR code…';
+      const detector = new window.BarcodeDetector({ formats: ['qr_code'] });
+      const canvas = $('#qr-canvas');
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      scanTimer = setInterval(async () => {
+        if (!scanStream || video.readyState < 2) return;
+        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+        if (!canvas.width) return;
+        ctx.drawImage(video, 0, 0);
+        try {
+          const codes = await detector.detect(canvas);
+          const hit = (codes || []).find((c) => (c.rawValue || '').startsWith(COFFRE_PREFIX));
+          if (hit) {
+            stopScan();
+            let coffre = null;
+            try { coffre = await decodeCoffreText(hit.rawValue); } catch (e) { coffre = null; }
+            if (!coffre) { showToast('⚠ QR illisible (coffre corrompu)'); return; }
+            await appliquerCoffre(coffre, 'qr');
+          }
+        } catch (e) { /* frame suivante */ }
+      }, 250);
+    };
+
+    $('#restore-scan-start').addEventListener('click', demarrerScan);
+    $('#restore-actions').addEventListener('click', (e) => {
+      const t = e.target.closest('button');
+      if (!t) return;
+      if (t.id === 'restore-cancel') closeRestore();
+      if (t.id === 'restore-next') analyserRestauration();
+      if (t.id === 'restore-scan-start') demarrerScan();
+      if (t.id === 'restore-scan-stop') stopScan();
+    });
+    $('#restore-overlay').addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); closeRestore(); } });
+
+    // ---- Modale Restaurer (fichier / coller / scanner)
+    let restoreChoice = null; // 'file' | 'paste'
+    const switchRestoreTab = (target) => {
+      restoreChoice = target;
+      $('#tab-file').classList.toggle('active', target === 'file');
+      $('#tab-file').setAttribute('aria-selected', String(target === 'file'));
+      $('#tab-paste').classList.toggle('active', target === 'paste');
+      $('#tab-paste').setAttribute('aria-selected', String(target === 'paste'));
+      $('#pane-file').hidden = target !== 'file';
+      $('#pane-paste').hidden = target !== 'paste';
+      $('#restore-next').hidden = target !== 'file' && target !== 'paste';
+      if (target === 'file') $('#restore-pick').focus();
+      if (target === 'paste') $('#restore-paste').focus();
+    };
+    const closeRestore = () => {
+      stopScan();
+      const overlay = $('#restore-overlay');
+      overlay.classList.remove('open');
+      setTimeout(() => { overlay.hidden = true; }, 200);
+    };
+    $('#restore').addEventListener('click', () => {
+      $('#restore-body').innerHTML = RESTORE_BODY_HTML; // recrée les onglets/pans détruits par une modale précédente
+      $('#restore-actions').innerHTML = RESTORE_ACTIONS_HTML;
+      $('#restore-file-name').textContent = '';
+      $('#restore-paste').value = '';
+      $('#tab-scan').hidden = !('BarcodeDetector' in window);
+      restoreChoice = 'file';
+      switchRestoreTab('file');
+      const overlay = $('#restore-overlay');
+      overlay.hidden = false;
+      requestAnimationFrame(() => overlay.classList.add('open'));
+      $('#restore-cancel').focus();
+    });
+    $('#restore-cancel').addEventListener('click', closeRestore);
+    // Délégation d'événements : le contenu de #restore-body est recréé à chaque
+    // ouverture de la modale, les listeners doivent survivre au remplacement.
+    $('#restore-body').addEventListener('click', (e) => {
+      const t = e.target.closest('.tab, #restore-pick');
+      if (!t) return;
+      if (t.id === 'tab-file') switchRestoreTab('file');
+      if (t.id === 'tab-paste') switchRestoreTab('paste');
+      if (t.id === 'tab-scan') {
+        switchRestoreTab('scan');
+        $('#restore-next').hidden = true;
+        $('#restore-scan-start').hidden = false;
+        $('#restore-scan-stop').hidden = false;
+      }
+      if (t.id === 'restore-pick') $('#file-input-json').click();
+    });
+    const zoneDe = (e) => e.target.closest && e.target.closest('#restore-drop');
+    ['dragover', 'dragenter'].forEach((ev) => $('#restore-body').addEventListener(ev, (e) => {
+      const z = zoneDe(e); if (!z) return;
+      e.preventDefault(); z.style.borderColor = 'var(--accent)';
+    }));
+    $('#restore-body').addEventListener('dragleave', (e) => {
+      const z = zoneDe(e); if (!z) return;
+      e.preventDefault(); z.style.borderColor = '';
+    });
+    $('#restore-body').addEventListener('drop', (e) => {
+      const z = zoneDe(e); if (!z) return;
+      e.preventDefault(); z.style.borderColor = '';
+      const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if (f) traiterFichierCoffre(f);
+    });
+    $('#file-input-json').addEventListener('change', (e) => {
+      const f = e.target.files[0];
+      e.target.value = '';
+      if (f) traiterFichierCoffre(f);
+    });
+    const traiterFichierCoffre = async (file) => {
+      let coffre = null;
+      try {
+        const texte = await file.text();
+        coffre = await decodeCoffreText(texte);
+      } catch (e) { coffre = null; }
+      if (!coffre || coffre.app !== 'homebiker' || coffre.format !== 2) {
+        await showCoffreModal({
+          icon: '⚠️', title: 'Coffre illisible',
+          bodyHTML: `<p>Le fichier <strong>${escapeHTML(file.name)}</strong> n'est pas un coffre HomeBiker valide (ou il est corrompu). Aucune donnée n'a été modifiée.</p>`,
+          actions: [{ label: 'Fermer', variant: 'primary', esc: true, enter: true }],
+        });
+        return;
+      }
+      await appliquerCoffre(coffre, 'file');
+    };
+    const analyserRestauration = async () => {
+      if (restoreChoice === 'paste') {
+        const texte = $('#restore-paste').value;
+        if (!texte.trim()) { showToast('Collez d\'abord le texte du coffre'); return; }
+        let coffre = null;
+        try { coffre = await decodeCoffreText(texte); } catch (e) { coffre = null; }
+        if (!coffre || coffre.app !== 'homebiker' || coffre.format !== 2) {
+          await showCoffreModal({
+            icon: '⚠️', title: 'Coffre illisible',
+            bodyHTML: '<p>Le texte collé n\'est pas un coffre HomeBiker valide (préfixe <code>HMBK2:</code> ou JSON du coffre attendu). Aucune donnée n\'a été modifiée.</p>',
+            actions: [{ label: 'Fermer', variant: 'primary', esc: true, enter: true }],
+          });
+          return;
+        }
+        closeRestore();
+        await appliquerCoffre(coffre, 'paste');
+      }
+    };
+
+    // ---- Modale QR (affichage) : onglets via bodyHTML + onOpen
+    const afficherQR = async () => {
+      const coffre = buildCoffre();
+      const texte = await encodeCoffreText(coffre);
+      let svg = null;
+      try {
+        const enc = new TextEncoder().encode(texte);
+        const qr = qrMake(enc);
+        svg = qrToSVG(qr);
+      } catch (e) { svg = null; }
+      const bodyHTML = svg
+        ? `<div class="coffre-qr">${svg}</div><div class="qr-cap">Présentez ce QR devant l'appareil récepteur (onglet <strong>Scanner un QR</strong> de ♻ Restaurer). Capacité limitée : au-delà, utilisez Sauvegarder (fichier) ou Copier le coffre.</div>`
+        : `<p>Le carnet est trop volumineux pour un QR code.</p><p>Utilisez <strong>Sauvegarder</strong> (fichier) ou <strong>Copier le coffre</strong> pour transférer vos données.</p>`;
+      await showCoffreModal({
+        icon: '🔳', title: svg ? 'Coffre en QR code' : 'QR indisponible',
+        bodyHTML,
+        actions: [{ label: 'Fermer', variant: 'primary', esc: true, enter: true }],
+      });
+    };
+
+    // ---- Modale des 4 sorties (bouton 💾 Sauvegarder)
+    $('#save').addEventListener('click', async () => {
+      const peutPartager = !!(navigator.canShare && navigator.canShare({ files: [new File([new Blob(['x'])], 't.json', { type: 'application/json' })] }));
+      const choix = await showCoffreModal({
+        icon: '💾', title: 'Sauvegarder le carnet',
+        bodyHTML: '<p>Le <strong>coffre</strong> contient tous les profils, carnets et préférences dans un seul fichier JSON, à conserver hors du navigateur (Téléchargements, Drive, mail…). C\'est votre filet de sécurité si le stockage du navigateur est effacé.</p>',
+        actions: [
+          ...(peutPartager ? [{ label: '📤 Partager', variant: 'primary', value: 'partage', enter: true }] : []),
+          { label: '⬇ Télécharger', variant: peutPartager ? '' : 'primary', value: 'fichier', ...(peutPartager ? {} : { enter: true }) },
+          { label: '📋 Copier le coffre', value: 'copie' },
+          { label: '🔳 Afficher le QR', value: 'qr' },
+          { label: 'Annuler', esc: true, value: null },
+        ],
+      });
+      if (!choix) return;
+      if (choix === 'partage') return sortirCoffre(true);
+      if (choix === 'fichier') return sortirCoffre(false);
+      if (choix === 'copie') {
+        const coffre = buildCoffre();
+        marquerSauvegardeFait();
+        const texte = await encodeCoffreText(coffre);
+        const tailleOk = texte.length <= 100000;
+        if (!tailleOk) {
+          await showCoffreModal({
+            icon: '⚠️', title: 'Coffre trop volumineux pour le copier-coller',
+            bodyHTML: '<p>Le coffre dépasse la taille raisonnable pour un copier-coller. Utilisez <strong>Télécharger</strong> ou <strong>Partager</strong>.</p>',
+            actions: [{ label: 'Fermer', variant: 'primary', esc: true, enter: true }],
+          });
+          return;
+        }
+        try { await navigator.clipboard.writeText(texte); showToast('✓ Coffre copié (texte HMBK2)'); }
+        catch (e) { showToast('⚠ Copie impossible — utilisez Télécharger'); }
+        return;
+      }
+      if (choix === 'qr') return afficherQR();
+    });
+
+    // ---- Bandeau « sauvegarde à faire »
+    function majBandeau() {
+      const bandeau = $('#save-band');
+      if (!coffreNonSauvegarde) { bandeau.hidden = true; return; }
+      const total = users.reduce((s, u) => s + (u.id === userId ? trajets : loadJSON(tripKey(u.id), [])).length, 0);
+      $('#save-band-msg').textContent = `💾 Sauvegarde à faire — ${coffreNonSauvegarde} modification(s) depuis la dernière sauvegarde (${total} séance(s) au total)`;
+      bandeau.hidden = false;
+    }
+    $('#save-band-dismiss').addEventListener('click', () => { $('#save-band').hidden = true; });
+    majBandeau();
 
     // Modale de dialogue stylée (remplace alert/confirm natifs)
     function showModal({ icon = '⚠️', title, body, actions, danger = false }) {
@@ -1234,7 +2098,7 @@
     });
 
     // ---- Barre utilisateur ----
-    function renderUserBar() {
+    function renderBarreUtilisateur() {
       const sel = $('#user-select');
       sel.innerHTML = '';
       users.forEach((u) => {
@@ -1283,6 +2147,7 @@
       trajets = [];
       saveUsers();
       save();
+      notifierModification();
       renderUserBar();
       render();
       showToast(`👤 ${name} ajouté — carnet vide`);
@@ -1300,6 +2165,7 @@
       if (name === null || name === me.name) return;
       me.name = name;
       saveUsers();
+      notifierModification();
       renderUserBar();
       render();
       showToast('✓ Utilisateur renommé');
@@ -1325,6 +2191,7 @@
       trajets = loadJSON(tripKey(userId), []);
       if (!Array.isArray(trajets)) trajets = [];
       saveUsers();
+      notifierModification();
       renderUserBar();
       render();
       showToast(`🗑 Profil supprimé — actif : ${currentUser().name}`);
@@ -1345,6 +2212,7 @@
       if (!ok) return;
       trajets = [];
       save();
+      notifierModification();
       render();
       showToast('Carnet effacé');
     });
@@ -1565,7 +2433,7 @@
     }
 
     // Aiguillage entre la vue de l'utilisateur actif et la vue consolidée
-    function render() {
+    function renderVue() {
       $('#toggle-view').textContent = vueGlobale ? '👤 Mon carnet' : '👥 Vue consolidée';
       $('#stats').style.display = vueGlobale ? 'none' : '';
       $('#stats-all').style.display = vueGlobale ? 'grid' : 'none';

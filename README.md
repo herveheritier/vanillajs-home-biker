@@ -50,6 +50,12 @@ Vos données restent dans votre navigateur.
 - **Export / import CSV** : compatible Excel/LibreOffice (`;`, BOM UTF-8,
   virgules décimales tolérées), avec le **nom de l'utilisateur** sur chaque
   ligne ; fusion avec détection des doublons ou remplacement complet
+- **Coffre de secours** : sauvegarde **complète** (tous les profils, tous les
+  carnets, préférences) en un clic, **hors du navigateur** — fichier daté,
+  partage natif, copie de texte ou **QR code** ; restauration par fichier,
+  texte collé ou scan QR, avec **fusion anti-doublons** ou remplacement ;
+  bandeau de rappel discret après chaque modification (indispensable dans les
+  navigateurs qui effacent le stockage à la fermeture)
 - **Multi-profils** : chaque utilisateur a son carnet isolé, avec
   ajout/renommage/suppression, et une **vue consolidée** de tous les carnets
   (statistiques, récapitulatif par utilisateur, détail de toutes les séances)
@@ -96,6 +102,32 @@ avant modification.
   votre carnet n'est pas vide, vous choisissez **fusionner** (les doublons
   sont ignorés) ou **remplacer**.
 
+### Sauvegarder / Restaurer (le « coffre de secours »)
+Le stockage du navigateur peut disparaître : navigation privée, navigateurs
+qui vident les données à la fermeture (DuckDuckGo), purge Safari après ~7
+jours… Le **coffre** est une sauvegarde complète — tous les profils et tous
+les carnets dans un seul fichier JSON — à conserver **hors du navigateur**.
+
+- **💾 Sauvegarder** propose, selon ce que le navigateur sait faire :
+  **⬇ Télécharger** un fichier daté `homebiker-sauvegarde-AAAA-MM-JJ-HHMM.json`,
+  **📤 Partager** (feuille de partage Android/iOS), **📋 Copier le coffre**
+  (texte compressé `HMBK2:…`, à coller dans des notes ou un e-mail privé) ou
+  **🔳 Afficher le QR** (transfert direct vers un autre appareil, carnet
+  jusqu'à ~25 séances ; au-delà, le fichier ou la copie prennent le relais).
+- **♻ Restaurer** ouvre un coffre par **fichier**, **texte collé** ou **scan
+  d'un QR** affiché sur l'autre appareil. Un aperçu présente chaque profil
+  (existant, à créer, séances déjà présentes) puis vous choisissez
+  **fusionner** (recommandé : doublons ignorés, la version la plus récemment
+  modifiée gagne) ou **remplacer** (les profils absents du coffre sont
+  conservés). Sur un **appareil vide**, la restauration est directe.
+- Le **bandeau 💾** rappelle de sauvegarder après toute modification : un clic
+  et c'est fait ; il se cache jusqu'à la prochaine modification.
+- **Synchroniser téléphone ↔ ordinateur** : sauvegardez sur le premier
+  appareil, transmettez le fichier (ou affichez le QR), restaurez en
+  **fusion** sur le second — et inversement quand vous avez saisi sur
+  l'ordinateur.
+- L'export/import CSV reste disponible, inchangé, pour Excel/LibreOffice.
+
 ### Vue consolidée
 Le bouton **👥 Vue consolidée** affiche le carnet de tous les utilisateurs :
 statistiques globales, récapitulatif par utilisateur et détail de toutes les
@@ -115,15 +147,22 @@ un éventuel ancien carnet unique vers le profil « Moi ».
 ## 🔒 Données & confidentialité
 
 Tout est stocké dans le **localStorage de votre navigateur** : rien ne sort
-de votre machine, aucun compte, aucun tracker. Pensez à faire un **export
-CSV** de temps en temps comme sauvegarde (un changement de navigateur ou de
-machine ne conserve pas les données locales) — l'**export global** depuis la
-vue consolidée sauvegarde tous les carnets en un seul fichier.
+de votre machine, aucun compte, aucun tracker, aucun réseau. Pour ne rien
+perdre (navigation privée, navigateur qui efface les données à la fermeture,
+changement d'appareil…), faites régulièrement un **💾 Sauvegarder** : le
+coffre produit un fichier complet à conserver **chez vous**
+(Téléchargements, Drive, e-mail) — il ne quitte votre appareil que si vous
+le partagez vous-même. Le texte du coffre contient vos données : ne le
+collez que dans des canaux privés. L'export CSV reste disponible pour
+Excel/LibreOffice.
 
 ## 🛠 Technique
 
 Un seul fichier [`index.html`](index.html) — HTML/CSS/JS vanilla, sans
-framework ni build. Hébergé gratuitement via **GitHub Pages**.
+framework ni build. Hébergé gratuitement via **GitHub Pages**. Le coffre de
+sauvegarde et son encodeur QR (~200 lignes, réécrit d'après l'algorithme MIT
+de [Project Nayuki](https://www.nayuki.io/page/qr-code-generator-library))
+sont embarqués dans ce même fichier : toujours zéro dépendance réseau.
 
 ## 📄 Licence
 
