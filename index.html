@@ -177,6 +177,45 @@
     .btn-ghost { background: transparent; color: var(--muted); padding: 6px 10px; font-size: .85rem; }
     .btn-ghost:hover { background: var(--accent-soft); color: var(--danger); }
 
+    /* ---- Formulaire repliable ---- */
+    .form-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 2px 0;
+      border: none;
+      background: none;
+      color: var(--text);
+      font: inherit;
+      font-size: 1.05rem;
+      font-weight: 650;
+      cursor: pointer;
+      text-align: left;
+    }
+    .form-toggle:hover { color: var(--accent); }
+    .form-toggle .chev { display: inline-block; color: var(--muted); font-size: .9em; transition: transform .15s ease; }
+    .form-toggle[aria-expanded="true"] .chev { transform: rotate(90deg); }
+    /* Dépliement en douceur : la rangée 0fr → 1fr anime la hauteur réelle */
+    .form-collapse {
+      display: grid;
+      grid-template-rows: 0fr;
+      overflow: hidden;
+      opacity: 0;
+      visibility: hidden;
+      transition: grid-template-rows .3s ease, opacity .25s ease, visibility 0s linear .3s;
+    }
+    .form-collapse.open {
+      grid-template-rows: 1fr;
+      opacity: 1;
+      visibility: visible;
+      transition: grid-template-rows .3s ease, opacity .25s ease, visibility 0s;
+    }
+    .form-collapse-inner { overflow: hidden; min-height: 0; padding-top: 16px; }
+    @media (prefers-reduced-motion: reduce) {
+      .form-collapse, .form-collapse.open { transition: none; }
+    }
+
     /* ---- Tableau ---- */
     .table-wrap { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; font-size: .92rem; }
@@ -426,7 +465,7 @@
     <header>
       <div>
         <h1><img class="logo" src="homeBiker.svg" alt="" width="40" height="40">Carnet de séances</h1>
-        <p>Consignez vos séances de vélo d'appartement : dates, horaires, kilométrage et force de résistance.</p>
+        <p>Consignez vos séances de vélo d'appartement : dates, horaires, kilométrage et force.</p>
       </div>
       <div class="header-actions">
         <button type="button" class="btn-ghost view-toggle" id="toggle-view" title="Basculer entre votre carnet et la vue consolidée de tous les utilisateurs">👥 Vue consolidée</button>
@@ -458,6 +497,11 @@
     </div>
 
     <section class="card" id="form-card">
+      <button type="button" class="form-toggle" id="form-toggle" aria-expanded="false" aria-controls="form">
+        <span class="chev" aria-hidden="true">▸</span>＋ Ajouter une séance
+      </button>
+      <div class="form-collapse" id="form-collapse">
+      <div class="form-collapse-inner">
       <form id="form">
         <div class="field">
           <label for="f-date">Date</label>
@@ -480,7 +524,7 @@
           <input id="f-arrivee" name="arrivee" type="number" step="0.1" min="0" required placeholder="ex. 1283.2">
         </div>
         <div class="field force-field">
-          <label for="f-force">Résistance <output id="force-out">4</output></label>
+          <label for="f-force">Force <output id="force-out">4</output></label>
           <input id="f-force" name="force" type="range" min="0" max="8" step="1" value="4">
         </div>
         <div class="form-foot">
@@ -488,6 +532,8 @@
           <button type="submit" class="btn-primary">＋ Ajouter la séance</button>
         </div>
       </form>
+      </div>
+      </div>
     </section>
 
     <section class="card" id="card-chart" style="display:none">
@@ -536,9 +582,10 @@
         <table>
           <thead>
             <tr>
-              <th>Date</th><th>Début</th><th>Fin</th>
-              <th>Compteur début</th><th>Compteur fin</th>
-              <th>Résistance</th><th>Distance</th><th>Durée</th><th>Vitesse</th>
+              <th>Date</th>
+              <th>Force</th><th>Distance</th><th>Durée</th><th>Vitesse</th>
+              <th>Heure<br>début</th><th>Heure<br>fin</th>
+              <th>Compteur<br>début</th><th>Compteur<br>fin</th>
               <th></th><th></th>
             </tr>
           </thead>
@@ -581,7 +628,7 @@
           <thead>
             <tr>
               <th>Utilisateur</th><th>Date</th><th>Début</th><th>Fin</th>
-              <th>Résistance</th><th>Distance</th><th>Durée</th><th>Vitesse</th>
+              <th>Force</th><th>Distance</th><th>Durée</th><th>Vitesse</th>
             </tr>
           </thead>
           <tbody id="consolide-liste"></tbody>
@@ -1930,14 +1977,14 @@
         tr.dataset.index = i;
         tr.innerHTML = `
           <td>${fmtDate(t.date)}</td>
-          <td class="num">${t.de}</td>
-          <td class="num">${t.a}</td>
-          <td class="num">${fmtKm(t.depart)}</td>
-          <td class="num">${fmtKm(t.arrivee)}</td>
           <td>${badgeForce(t.force)}</td>
           <td class="num distance">${fmtKm(t.distance)} km</td>
           <td class="num">${fmtH(min)}</td>
-          <td class="num">${fmtKm(vitesse)} km/h</td>`;
+          <td class="num">${fmtKm(vitesse)} km/h</td>
+          <td class="num">${t.de}</td>
+          <td class="num">${t.a}</td>
+          <td class="num">${fmtKm(t.depart)}</td>
+          <td class="num">${fmtKm(t.arrivee)}</td>`;
         const tdEdit = document.createElement('td');
         const editBtn = document.createElement('button');
         editBtn.className = 'row-edit';
@@ -2003,14 +2050,14 @@
       row.classList.add('editing');
       row.innerHTML = `
         <td><input name="e-date" type="date" value="${t.date}" required></td>
-        <td><input name="e-de" type="time" value="${t.de}" required></td>
-        <td><input name="e-a" type="time" value="${t.a}" required></td>
-        <td><input name="e-depart" type="number" step="0.1" value="${t.depart}" ${borneMin !== null ? `min="${borneMin}"` : ''} disabled title="Verrouillé au compteur fin de la séance précédente"></td>
-        <td><input name="e-arrivee" type="number" step="0.1" value="${t.arrivee}" ${borneMin !== null ? `min="${borneMin}"` : ''} required></td>
         <td><input name="e-force" type="number" min="0" max="8" step="1" value="${t.force}" required></td>
         <td class="num distance" data-e-distance>${fmtKm(t.distance)} km</td>
         <td class="num" data-e-duree>${fmtH(dureeMin(t.de, t.a))}</td>
         <td class="num" data-e-vitesse>${fmtKm(t.distance / (dureeMin(t.de, t.a) / 60))} km/h</td>
+        <td><input name="e-de" type="time" value="${t.de}" required></td>
+        <td><input name="e-a" type="time" value="${t.a}" required></td>
+        <td><input name="e-depart" type="number" step="0.1" value="${t.depart}" ${borneMin !== null ? `min="${borneMin}"` : ''} disabled title="Verrouillé au compteur fin de la séance précédente"></td>
+        <td><input name="e-arrivee" type="number" step="0.1" value="${t.arrivee}" ${borneMin !== null ? `min="${borneMin}"` : ''} required></td>
         <td class="edit-btns" colspan="2">
           <button type="button" class="btn-mini" data-e-ok>✓</button>
           <button type="button" class="btn-mini cancel" data-e-cancel>✕</button>
@@ -2209,6 +2256,22 @@
     });
     $('#f-force').addEventListener('input', (e) => $('#force-out').textContent = e.target.value);
 
+    // ---- Formulaire repliable (caché par défaut, choix mémorisé) ----
+    const FORM_TOUCHE = 'hb.form.ouvert';
+    const formToggle = $('#form-toggle');
+    const formCollapse = $('#form-collapse');
+    const appliquerFormOuvert = (ouvert) => {
+      formCollapse.classList.toggle('open', ouvert);
+      formToggle.setAttribute('aria-expanded', String(ouvert));
+    };
+    appliquerFormOuvert(localStorage.getItem(FORM_TOUCHE) === '1');
+    formToggle.addEventListener('click', () => {
+      const ouvert = !formCollapse.classList.contains('open');
+      appliquerFormOuvert(ouvert);
+      try { localStorage.setItem(FORM_TOUCHE, ouvert ? '1' : '0'); } catch {}
+      if (ouvert) majAuto();
+    });
+
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       const depart = parseFloat($('#f-depart').value);
@@ -2232,9 +2295,9 @@
       trajets.sort((x, y) => (x.date + x.de).localeCompare(y.date + y.de));
       save();
       render();
-      showToast('✓ Séance ajoutée');
 
       // On garde la date et le compteur de départ pour la saisie suivante
+      // (valeurs conservées dans les champs, qui sont repliés pour alléger l'écran).
       const date = $('#f-date').value;
       form.reset();
       $('#f-date').value = date;
@@ -2244,7 +2307,9 @@
       arriveeAuto = true;
       $('#force-out').textContent = '4';
       majPreview();
-      $('#f-de').focus();
+      appliquerFormOuvert(false);
+      try { localStorage.setItem(FORM_TOUCHE, '0'); } catch {}
+      showToast('✓ Séance ajoutée');
     });
 
     // ---- Export CSV (utilisateur courant ou tous les profils) ----
@@ -2252,7 +2317,7 @@
       v = String(v);
       return /[";\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
     };
-    const csvHeader = ['Utilisateur', 'Date', 'Heure de début', 'Heure de fin', 'Compteur début', 'Compteur fin', 'Résistance', 'Distance (km)', 'Durée', 'Vitesse (km/h)'];
+    const csvHeader = ['Utilisateur', 'Date', 'Heure de début', 'Heure de fin', 'Compteur début', 'Compteur fin', 'Force', 'Distance (km)', 'Durée', 'Vitesse (km/h)'];
     const csvLigne = (nom, t) => {
       const min = dureeMin(t.de, t.a);
       const vitesse = min > 0 ? t.distance / (min / 60) : 0;
