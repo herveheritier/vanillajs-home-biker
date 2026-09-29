@@ -6,7 +6,7 @@
  *  3. servir l'app depuis le cache d'abord, en se rafraîchissant en arrière-plan.
  * Zéro dépendance, zéro réseau sortant : seuls les fichiers de l'app sont mis en cache.
  */
-const CACHE = 'homebiker-v1';
+const CACHE = 'homebiker-v3';
 const PRECACHE = [
   './index.html',
   './manifest.json',
