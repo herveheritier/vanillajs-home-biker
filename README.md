@@ -32,7 +32,11 @@ Vos données restent dans votre navigateur.
 - **Chrono de séance** : onglet **⏱ Chrono** du formulaire — **Démarrer**
   lance le minuteur, **Arrêter** le stoppe et bascule sur l'onglet de saisie
   avec **date et horaires pré-remplis** (heure de début = départ du chrono,
-  heure de fin = arrêt) ; il ne reste que le compteur et la force à ajuster
+  heure de fin = arrêt) ; le **compteur de début** et la **force** sont
+  repris de la dernière séance — il ne reste que le compteur de fin à ajuster
+- **Onglets à bascule** : les onglets **⏱ Chrono** et **✎ Saisie** sont
+  fermés à l'ouverture (aucun panneau affiché) ; re-cliquer l'onglet ouvert
+  le referme
 - **Statistiques** : nombre de séances, distance totale, durée cumulée et
   vitesse moyenne
 - **Graphique de progression** : barres de distance et courbe de vitesse
@@ -81,6 +85,8 @@ Vos données restent dans votre navigateur.
 ## 📖 Mode d'emploi
 
 ### Consigner une séance
+Ouvrez l'onglet **✎ Saisie** de la carte d'ajout (le formulaire y est toujours
+visible), puis :
 1. Renseignez la **date**, l'**heure de début** et l'**heure de fin**.
 2. Notez le **compteur au début** puis **à la fin** de la séance — la distance
    s'affiche au fil de la saisie (une alerte apparaît si la fin est inférieure
@@ -97,14 +103,17 @@ Toute saisie manuelle reste prioritaire (effacez le champ pour réactiver
 l'automatisme).
 
 ### Chronométrer une séance
-Dans la carte d'ajout, l'onglet **⏱ Chrono** propose un bouton **▶ Démarrer** :
-lancez-le quand vous montez en selle — le minuteur s'affiche (et continue de
-tourner en fond d'onglet « ✎ Saisie » si vous y retournez). Au **⏹ Arrêter**,
-l'onglet de saisie s'ouvre automatiquement avec la **date**, l'**heure de
-début** et l'**heure de fin** pré-remplies d'après le chrono ; le compteur de
-début reste chaîné à la séance précédente et le compteur de fin part de sa
-valeur — il ne reste qu'à ajuster le compteur et la force. En cas de séance
-traversant minuit, la date retenue est celle du **début**.
+Dans la carte d'ajout, ouvrez l'onglet **⏱ Chrono** puis le bouton
+**▶ Démarrer** : lancez-le quand vous montez en selle — le minuteur s'affiche
+(et continue de tourner en fond d'onglet « ✎ Saisie » si vous y retournez). Au
+**⏹ Arrêter**, l'onglet de saisie s'ouvre automatiquement avec la **date**,
+l'**heure de début** et l'**heure de fin** pré-remplies d'après le chrono ; le
+**compteur de début** est initialisé au **compteur de fin de la dernière
+séance** et la **force** à celle de la dernière séance (premier démarrage :
+champs vides par défaut). Le compteur de fin part de la valeur du début — il
+ne reste qu'à le mettre à jour. En cas de séance traversant minuit, la date
+retenue est celle du **début**. Les onglets fonctionnent en bascule :
+re-cliquer l'onglet ouvert referme son panneau (aucun affiché).
 
 ### Corriger une séance
 Cliquez sur **✎** dans la ligne du tableau : le compteur de début est
