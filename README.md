@@ -29,6 +29,10 @@ Vos données restent dans votre navigateur.
   d'une séance oubliée), le compteur de début est repris de la séance qui
   **précède chronologiquement** le moment saisi, et la séance ajoutée
   retrouve sa place dans le carnet
+- **Chrono de séance** : onglet **⏱ Chrono** du formulaire — **Démarrer**
+  lance le minuteur, **Arrêter** le stoppe et bascule sur l'onglet de saisie
+  avec **date et horaires pré-remplis** (heure de début = départ du chrono,
+  heure de fin = arrêt) ; il ne reste que le compteur et la force à ajuster
 - **Statistiques** : nombre de séances, distance totale, durée cumulée et
   vitesse moyenne
 - **Graphique de progression** : barres de distance et courbe de vitesse
@@ -91,6 +95,16 @@ pour consigner une séance oubliée au milieu du carnet — et **l'heure de fin*
 ainsi que le **compteur de fin** partent de la valeur des champs de début.
 Toute saisie manuelle reste prioritaire (effacez le champ pour réactiver
 l'automatisme).
+
+### Chronométrer une séance
+Dans la carte d'ajout, l'onglet **⏱ Chrono** propose un bouton **▶ Démarrer** :
+lancez-le quand vous montez en selle — le minuteur s'affiche (et continue de
+tourner en fond d'onglet « ✎ Saisie » si vous y retournez). Au **⏹ Arrêter**,
+l'onglet de saisie s'ouvre automatiquement avec la **date**, l'**heure de
+début** et l'**heure de fin** pré-remplies d'après le chrono ; le compteur de
+début reste chaîné à la séance précédente et le compteur de fin part de sa
+valeur — il ne reste qu'à ajuster le compteur et la force. En cas de séance
+traversant minuit, la date retenue est celle du **début**.
 
 ### Corriger une séance
 Cliquez sur **✎** dans la ligne du tableau : le compteur de début est

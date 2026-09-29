@@ -216,6 +216,31 @@
       .form-collapse, .form-collapse.open { transition: none; }
     }
 
+    /* ---- Onglets du formulaire (Chrono / Saisie) ---- */
+    .form-tabs { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
+    .form-panes > div[hidden] { display: none; }
+    .chrono {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      padding: 8px 0 4px;
+    }
+    .chrono .time {
+      font-size: 2.4rem;
+      font-weight: 650;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: .02em;
+      line-height: 1.2;
+    }
+    .chrono .time.running { color: var(--accent); }
+    .chrono .hint { font-size: .88rem; color: var(--muted); text-align: center; max-width: 34ch; }
+    .chrono .hint b { color: var(--text); }
+    .chrono-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+    .chrono-actions .btn-primary { min-width: 140px; }
+    .btn-stop { background: var(--danger); color: #fff; }
+    .btn-stop:hover { filter: brightness(1.08); }
+
     /* ---- Tableau ---- */
     .table-wrap { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; font-size: .92rem; }
@@ -497,26 +522,41 @@
     </div>
 
     <section class="card" id="form-card">
-      <button type="button" class="form-toggle" id="form-toggle" aria-expanded="false" aria-controls="form">
-        <span class="chev" aria-hidden="true">▸</span>＋ Ajouter une séance
-      </button>
-      <div class="form-collapse" id="form-collapse">
-      <div class="form-collapse-inner">
-      <form id="form">
-        <div class="field">
-          <label for="f-date">Date</label>
-          <input id="f-date" name="date" type="date" required>
+      <div class="form-tabs" role="tablist">
+        <button type="button" class="tab active" id="tab-chrono" role="tab" aria-selected="true" aria-controls="pane-chrono">⏱ Chrono</button>
+        <button type="button" class="tab" id="tab-saisie" role="tab" aria-selected="false" aria-controls="pane-saisie">✎ Saisie</button>
+      </div>
+      <div class="form-panes">
+        <div id="pane-chrono" role="tabpanel">
+          <div class="chrono">
+            <div class="time" id="chrono-display">00:00</div>
+            <div class="hint" id="chrono-hint">Appuyez sur <b>Démarrer</b> quand vous montez en selle. À l'arrêt, la saisie s'ouvre avec la date et les horaires pré-remplis.</div>
+            <div class="chrono-actions">
+              <button type="button" class="btn-primary" id="chrono-start">▶ Démarrer</button>
+              <button type="button" class="btn-stop" id="chrono-stop" hidden>⏹ Arrêter</button>
+            </div>
+          </div>
         </div>
-        <div class="field">
-          <label for="f-de">Heure de début</label>
-          <input id="f-de" name="de" type="time" required>
-        </div>
-        <div class="field">
-          <label for="f-a">Heure de fin</label>
-          <input id="f-a" name="a" type="time" required>
-        </div>
-        <div class="field">
-          <label for="f-depart">Compteur début</label>
+        <div id="pane-saisie" role="tabpanel" hidden>
+          <button type="button" class="form-toggle" id="form-toggle" aria-expanded="false" aria-controls="form">
+            <span class="chev" aria-hidden="true">▸</span>＋ Ajouter une séance</button>
+          <div class="form-collapse" id="form-collapse">
+          <div class="form-collapse-inner">
+          <form id="form">
+            <div class="field">
+              <label for="f-date">Date</label>
+              <input id="f-date" name="date" type="date" required>
+            </div>
+            <div class="field">
+              <label for="f-de">Heure de début</label>
+              <input id="f-de" name="de" type="time" required>
+            </div>
+            <div class="field">
+              <label for="f-a">Heure de fin</label>
+              <input id="f-a" name="a" type="time" required>
+            </div>
+            <div class="field">
+              <label for="f-depart">Compteur début</label>
           <input id="f-depart" name="depart" type="number" step="0.1" min="0" required placeholder="ex. 1240.5">
         </div>
         <div class="field">
@@ -533,6 +573,8 @@
         </div>
       </form>
       </div>
+      </div>
+        </div>
       </div>
     </section>
 
@@ -776,6 +818,81 @@
         delete toast.dataset.forced;
       }, 2200);
     };
+
+    // ---- Onglets du formulaire : ⏱ Chrono / ✎ Saisie ----
+    const switchFormTab = (cible) => {
+      const chrono = cible === 'chrono';
+      $('#tab-chrono').classList.toggle('active', chrono);
+      $('#tab-saisie').classList.toggle('active', !chrono);
+      $('#tab-chrono').setAttribute('aria-selected', String(chrono));
+      $('#tab-saisie').setAttribute('aria-selected', String(!chrono));
+      $('#pane-chrono').hidden = !chrono;
+      $('#pane-saisie').hidden = chrono;
+    };
+    $('#tab-chrono').addEventListener('click', () => switchFormTab('chrono'));
+    $('#tab-saisie').addEventListener('click', () => switchFormTab('saisie'));
+
+    // ---- Chrono de séance : « Démarrer » lance le minuteur, « Arrêter »
+    // bascule sur l'onglet de saisie avec date et horaires pré-remplis.
+    // NB : appliqué tard dans le script, ce bloc ne référence au chargement que
+    // des éléments DOM et showToast ; majAuto, les drapeaux d'automatisme et
+    // appliquerFormOuvert ne sont utilisés qu'au clic (déjà initialisés).
+    const chronoDisplay = $('#chrono-display');
+    const chronoStart = $('#chrono-start');
+    const chronoStop = $('#chrono-stop');
+    const jourLocal = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const hhmm = (d) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    const fmtChrono = (ms) => {
+      const s = Math.floor(ms / 1000);
+      const h = Math.floor(s / 3600);
+      const m = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+      const sec = String(s % 60).padStart(2, '0');
+      return h ? `${h}:${m}:${sec}` : `${m}:${sec}`;
+    };
+    let chronoDebut = null;
+    let chronoTimer = null;
+    const rendreChrono = () => {
+      const texte = fmtChrono(Date.now() - chronoDebut);
+      chronoDisplay.textContent = texte;
+      $('#tab-chrono').textContent = `⏱ ${texte}`; // progression visible même depuis l'onglet Saisie
+    };
+    chronoStart.addEventListener('click', () => {
+      if (chronoTimer) return;
+      chronoDebut = Date.now();
+      rendreChrono();
+      chronoDisplay.classList.add('running');
+      chronoStart.hidden = true;
+      chronoStop.hidden = false;
+      chronoTimer = setInterval(rendreChrono, 1000);
+      showToast('⏱ Séance démarrée — bon pédalage !');
+    });
+    chronoStop.addEventListener('click', () => {
+      if (!chronoTimer) return;
+      const debut = new Date(chronoDebut);
+      const fin = new Date();
+      clearInterval(chronoTimer);
+      chronoTimer = null;
+      chronoDebut = null;
+      chronoDisplay.classList.remove('running');
+      chronoDisplay.textContent = '00:00';
+      $('#tab-chrono').textContent = '⏱ Chrono';
+      chronoStop.hidden = true;
+      chronoStart.hidden = false;
+      // Pré-remplissage : date + horaires issus du chrono ; compteur début
+      // chaîné à la séance précédente, compteur fin calé sur le début.
+      departAuto = true;
+      heureFinAuto = false; // l'heure de fin vient du chrono, ne suit plus l'heure de début
+      arriveeAuto = true;
+      $('#f-date').value = jourLocal(debut);
+      $('#f-de').value = hhmm(debut);
+      $('#f-a').value = hhmm(fin);
+      majAuto();
+      appliquerFormOuvert(true);
+      try { localStorage.setItem(FORM_TOUCHE, '1'); } catch {}
+      switchFormTab('saisie');
+      showToast(`✓ Séance arrêtée (${fmtChrono(fin - debut)}) — vérifiez le compteur de fin`);
+      $('#f-arrivee').focus();
+    });
 
     /* ================= Coffre de secours (persistance hors navigateur) ================= */
 
